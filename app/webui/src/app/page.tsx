@@ -123,7 +123,7 @@ export default function Home() {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-paper/95 backdrop-blur-sm border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-4 sm:py-5 gap-4">
+          <div className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:py-5">
             {/* Hub name */}
             <div className="flex-shrink-0">
               <h1 className="text-2xl sm:text-3xl font-display font-semibold text-ink tracking-tight">
@@ -135,7 +135,7 @@ export default function Home() {
             </div>
 
             {/* Controls row */}
-            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+            <div className="flex flex-wrap items-center gap-3">
               {/* Language toggle */}
               <div className="flex items-center bg-ink/5 rounded-lg p-1" role="group" aria-label="Language selection">
                 {(["zh", "en", "es"] as Language[]).map((lang, idx) => (
@@ -143,7 +143,7 @@ export default function Home() {
                     key={lang}
                     onClick={() => handleLanguageChange(lang)}
                     className={`
-                      px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200
+                      px-3 py-2 text-sm font-medium rounded-md transition-all duration-200
                       ${language === lang
                         ? "bg-white text-ink shadow-sm"
                         : "text-ink-light hover:text-ink"
@@ -163,7 +163,7 @@ export default function Home() {
                 onClick={handleRefresh}
                 disabled={isRefreshing}
                 className={`
-                  flex items-center gap-2 px-3 py-1.5 text-sm font-medium
+                  flex items-center gap-2 px-3 py-2 text-sm font-medium
                   rounded-lg border border-border bg-white
                   text-ink-light hover:text-accent hover:border-accent/50
                   transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
@@ -195,9 +195,9 @@ export default function Home() {
           </div>
 
           {/* Filters bar */}
-          <div className="flex flex-wrap items-center gap-3 pb-4 no-print">
-            {/* Search */}
-            <div className="flex-1 min-w-[200px]">
+          <div className="flex flex-col gap-3 pb-4 no-print">
+            {/* Search - full width on mobile */}
+            <div className="w-full">
               <div className="relative">
                 <svg
                   className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-light"
@@ -217,7 +217,7 @@ export default function Home() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={ui.searchPlaceholder}
-                  className="w-full pl-10 pr-4 py-2 text-sm bg-white border border-border rounded-lg
+                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-border rounded-lg
                     text-ink placeholder-ink-light
                     focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent
                     transition-all duration-200"
@@ -225,50 +225,53 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Topic filter */}
-            <div className="flex items-center gap-1 bg-ink/5 rounded-lg p-1">
-              {[
-                { value: "all", label: ui.topicAll },
-                { value: "border", label: ui.topicBorder },
-                { value: "aviation", label: ui.topicAviation },
-              ].map((topic) => (
-                <button
-                  key={topic.value}
-                  onClick={() => setTopicFilter(topic.value as TopicFilter)}
-                  className={`
-                    px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200
-                    ${topicFilter === topic.value
-                      ? "bg-white text-ink shadow-sm"
-                      : "text-ink-light hover:text-ink"
-                    }
-                  `}
-                >
-                  {topic.label}
-                </button>
-              ))}
-            </div>
+            {/* Filter buttons - horizontally scrollable on small screens */}
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Topic filter */}
+              <div className="flex items-center gap-1 bg-ink/5 rounded-lg p-1">
+                {[
+                  { value: "all", label: ui.topicAll },
+                  { value: "border", label: ui.topicBorder },
+                  { value: "aviation", label: ui.topicAviation },
+                ].map((topic) => (
+                  <button
+                    key={topic.value}
+                    onClick={() => setTopicFilter(topic.value as TopicFilter)}
+                    className={`
+                      px-3 py-2 text-sm font-medium rounded-md transition-all duration-200
+                      ${topicFilter === topic.value
+                        ? "bg-white text-ink shadow-sm"
+                        : "text-ink-light hover:text-ink"
+                      }
+                    `}
+                  >
+                    {topic.label}
+                  </button>
+                ))}
+              </div>
 
-            {/* Time filter */}
-            <div className="flex items-center gap-1 bg-ink/5 rounded-lg p-1">
-              {[
-                { value: "24h", label: ui.time24h },
-                { value: "7d", label: ui.time7d },
-                { value: "all", label: ui.timeAll },
-              ].map((time) => (
-                <button
-                  key={time.value}
-                  onClick={() => setTimeFilter(time.value as TimeFilter)}
-                  className={`
-                    px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200
-                    ${timeFilter === time.value
-                      ? "bg-white text-ink shadow-sm"
-                      : "text-ink-light hover:text-ink"
-                    }
-                  `}
-                >
-                  {time.label}
-                </button>
-              ))}
+              {/* Time filter */}
+              <div className="flex items-center gap-1 bg-ink/5 rounded-lg p-1">
+                {[
+                  { value: "24h", label: ui.time24h },
+                  { value: "7d", label: ui.time7d },
+                  { value: "all", label: ui.timeAll },
+                ].map((time) => (
+                  <button
+                    key={time.value}
+                    onClick={() => setTimeFilter(time.value as TimeFilter)}
+                    className={`
+                      px-3 py-2 text-sm font-medium rounded-md transition-all duration-200
+                      ${timeFilter === time.value
+                        ? "bg-white text-ink shadow-sm"
+                        : "text-ink-light hover:text-ink"
+                      }
+                    `}
+                  >
+                    {time.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -632,17 +635,18 @@ function ArticleOverlay({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-start justify-center bg-black/50 backdrop-blur-sm p-4 sm:p-8 overflow-y-auto"
+      className="fixed inset-0 z-[100] flex items-start justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4 overflow-y-auto"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
     >
+      {/* Full-screen sheet on mobile, centered dialog on desktop */}
       <div
-        className="relative bg-paper w-full max-w-3xl rounded-2xl shadow-xl my-4 sm:my-8"
+        className="relative bg-paper w-full sm:w-full sm:max-w-3xl sm:rounded-2xl sm:shadow-xl sm:my-8 min-h-[100dvh] sm:min-h-0 flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Sticky header */}
-        <div className="sticky top-0 z-10 bg-paper/95 backdrop-blur border-b border-border rounded-t-2xl px-5 sm:px-6 py-4">
+        <div className="sticky top-0 z-10 bg-paper/95 backdrop-blur border-b border-border sm:rounded-t-2xl px-4 sm:px-6 py-4 flex-shrink-0">
           <div className="flex items-start gap-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1.5">
@@ -663,14 +667,14 @@ function ArticleOverlay({
                   {isBorder ? "Border" : "Aviation"}
                 </span>
               </div>
-              <h2 className="text-xl sm:text-2xl font-display font-semibold text-ink leading-snug">
+              <h2 className="text-lg sm:text-xl font-display font-semibold text-ink leading-snug">
                 {content.title}
               </h2>
             </div>
             <button
               onClick={onClose}
               aria-label="Close"
-              className="flex-shrink-0 p-2 -m-2 rounded-lg text-ink-light hover:text-ink hover:bg-ink/5 transition-colors"
+              className="flex-shrink-0 p-2 -m-2 rounded-lg text-ink-light hover:text-ink hover:bg-ink/5 transition-colors touch-target"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -679,14 +683,14 @@ function ArticleOverlay({
           </div>
         </div>
 
-        {/* Body */}
-        <div className="px-5 sm:px-6 py-5">
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5">
           {/* Translated / Original toggle */}
           <div className="flex items-center gap-3 mb-4">
             <div className="flex items-center bg-ink/5 rounded-lg p-1">
               <button
                 onClick={() => setShowOriginal(false)}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
                   !showOriginal ? "bg-white text-ink shadow-sm" : "text-ink-light hover:text-ink"
                 }`}
               >
@@ -694,7 +698,7 @@ function ArticleOverlay({
               </button>
               <button
                 onClick={() => setShowOriginal(true)}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
                   showOriginal ? "bg-white text-ink shadow-sm" : "text-ink-light hover:text-ink"
                 }`}
               >
@@ -728,7 +732,7 @@ function ArticleOverlay({
               ))}
             </div>
           ) : shownText ? (
-            <div className="whitespace-pre-line text-[15px] leading-relaxed text-ink">
+            <div className="whitespace-pre-line text-[15px] sm:text-base leading-relaxed text-ink">
               {shownText}
             </div>
           ) : (
