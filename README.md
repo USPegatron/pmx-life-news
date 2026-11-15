@@ -1,7 +1,9 @@
 # Border & Flight News Hub
 
 每小時自動搜尋 **El Paso (TX) / Juárez (MX)** 重大民生新聞 + **全球飛航**重大新聞，
-翻譯成 **中 / 英 / 西** 三語（含圖片），存入 Supabase，並透過部署在 Vercel 的 Web UI 公開瀏覽。
+翻譯成 **中（繁體）/ 英 / 西** 三語（含圖片），存入 Supabase，並透過部署在 Vercel 的 Web UI 公開瀏覽。
+
+> 註：中文一律輸出**繁體**（DeepL 目標語言 `ZH-HANT`，非簡體）；UI 介面文字亦為繁體。
 
 ## 架構
 
@@ -14,7 +16,7 @@
 └─────────────────────────┘      └──────────────┘      └─────────────────────┘
 ```
 
-- **app/crawler/** — Python 爬蟲：RSS 抓取（邊境城市媒體 + 航空媒體）→ 去重（URL sha256）→ DeepL 批次翻譯 → 寫入 Supabase。
+- **app/crawler/** — Python 爬蟲：RSS 抓取（邊境城市媒體 + 航空媒體）→ 去重（URL sha256）→ DeepL 批次翻譯（中文目標 `ZH-HANT` 繁體）→ 寫入 Supabase。
 - **app/webui/** — Next.js 15 App：讀 Supabase（anon key），三語切換、搜尋、主題/時間過濾、圖片卡片。
 - **app/supabase/schema.sql** — 資料庫結構（含 RLS：公開只讀，寫入僅限 service_role）。
 
