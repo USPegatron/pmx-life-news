@@ -15,6 +15,10 @@ import {
 const REFRESH_INTERVAL = 10 * 60 * 1000; // 10 minutes
 const FETCH_LIMIT = 300;
 
+// Columns for the list (content_* fetched lazily on demand via the API).
+const LIST_COLUMNS =
+  "id,url_hash,url,topic,source,language_original,title_en,title_zh,title_es,summary_en,summary_zh,summary_es,image_url,published_at,fetched_at,created_at";
+
 export default function Home() {
   // State
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
@@ -22,6 +26,7 @@ export default function Home() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastFetched, setLastFetched] = useState<Date | null>(null);
+  const [selected, setSelected] = useState<NewsItem | null>(null);
 
   // Filters
   const [language, setLanguage] = useState<Language>("en");
@@ -45,13 +50,13 @@ export default function Home() {
     try {
       const { data, error: fetchError } = await supabase
         .from("news_items")
-        .select("*")
+        .select(LIST_COLUMNS)
         .order("published_at", { ascending: false })
         .limit(FETCH_LIMIT);
 
       if (fetchError) throw fetchError;
 
-      setNewsItems(data || []);
+      setNewsItems((data as NewsItem[]) || []);
       setLastFetched(new Date());
     } catch (err) {
       console.error("Failed to fetch news:", err);
@@ -357,6 +362,7 @@ export default function Home() {
                 item={item}
                 language={language}
                 delay={index < 6 ? (index + 1) : 0}
+                onOpen={() => setSelected(item)}
               />
             ))}
           </div>
@@ -371,6 +377,15 @@ export default function Home() {
           </p>
         </div>
       </footer>
+
+      {/* Reading overlay */}
+      {selected && (
+        <ArticleOverlay
+          item={selected}
+          language={language}
+          onClose={() => setSelected(null)}
+        />
+      )}
     </main>
   );
 }
@@ -380,10 +395,12 @@ function NewsCard({
   item,
   language,
   delay = 0,
+  onOpen,
 }: {
   item: NewsItem;
   language: Language;
   delay?: number;
+  onOpen: () => void;
 }) {
   const content = getTranslatedContent(item, language);
   const ui = getUIStrings(language);
@@ -397,9 +414,18 @@ function NewsCard({
 
   return (
     <article
+      onClick={onOpen}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
       className={`
-        group bg-white rounded-xl border border-border overflow-hidden
-        shadow-card hover:shadow-card-hover
+        group cursor-pointer bg-white rounded-xl border border-border overflow-hidden
+        shadow-card hover:shadow-card-hover focus:outline-none focus:ring-2 focus:ring-accent/30
         transition-all duration-300
         ${animationClass}
       `}
@@ -497,11 +523,12 @@ function NewsCard({
           </p>
         )}
 
-        {/* Read more link */}
+        {/* Read more link (external original) */}
         <a
           href={item.url}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:text-accent-hover transition-colors duration-200"
         >
           {ui.readMore}
@@ -521,5 +548,209 @@ function NewsCard({
         </a>
       </div>
     </article>
+  );
+}
+
+type OverlayData = {
+  content?: string;
+  original?: string;
+  translated?: boolean;
+  cached?: boolean;
+  note?: string;
+};
+
+// Full-article reading overlay with on-demand translation
+function ArticleOverlay({
+  item,
+  language,
+  onClose,
+}: {
+  item: NewsItem;
+  language: Language;
+  onClose: () => void;
+}) {
+  const content = getTranslatedContent(item, language);
+  const [data, setData] = useState<OverlayData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+  const [showOriginal, setShowOriginal] = useState(false);
+
+  const labels =
+    language === "zh"
+      ? { translated: "譯文", original: "原文", loading: "翻譯中…", failed: "翻譯失敗", link: "開啟原文連結" }
+      : language === "es"
+      ? { translated: "Traducción", original: "Original", loading: "Traduciendo…", failed: "Error de traducción", link: "Abrir original" }
+      : { translated: "Translated", original: "Original", loading: "Translating…", failed: "Translation failed", link: "Open original" };
+
+  // Fetch full-text translation for the current language
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setErr(null);
+    setData(null);
+    setShowOriginal(false);
+
+    fetch(`/api/translate?id=${encodeURIComponent(item.id)}&lang=${language}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((j) => {
+        if (!cancelled) setData(j);
+      })
+      .catch((e) => {
+        if (!cancelled) setErr(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [item.id, language]);
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  // Lock body scroll while open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  const shownText = showOriginal
+    ? data?.original ?? ""
+    : data?.content ?? "";
+  const isBorder = item.topic === "border";
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-start justify-center bg-black/50 backdrop-blur-sm p-4 sm:p-8 overflow-y-auto"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="relative bg-paper w-full max-w-3xl rounded-2xl shadow-xl my-4 sm:my-8"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Sticky header */}
+        <div className="sticky top-0 z-10 bg-paper/95 backdrop-blur border-b border-border rounded-t-2xl px-5 sm:px-6 py-4">
+          <div className="flex items-start gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1.5">
+                {item.source && (
+                  <span className="text-xs font-medium text-ink-light uppercase tracking-wide">
+                    {item.source}
+                  </span>
+                )}
+                <span className="w-1 h-1 rounded-full bg-border" />
+                <span className="text-xs text-ink-light">
+                  {formatRelativeTime(item.published_at, language)}
+                </span>
+                <span
+                  className={`ml-1 px-2 py-0.5 text-[10px] font-semibold rounded-full uppercase tracking-wider text-white ${
+                    isBorder ? "bg-border-topic/90" : "bg-aviation-topic/90"
+                  }`}
+                >
+                  {isBorder ? "Border" : "Aviation"}
+                </span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-display font-semibold text-ink leading-snug">
+                {content.title}
+              </h2>
+            </div>
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              className="flex-shrink-0 p-2 -m-2 rounded-lg text-ink-light hover:text-ink hover:bg-ink/5 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 sm:px-6 py-5">
+          {/* Translated / Original toggle */}
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center bg-ink/5 rounded-lg p-1">
+              <button
+                onClick={() => setShowOriginal(false)}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
+                  !showOriginal ? "bg-white text-ink shadow-sm" : "text-ink-light hover:text-ink"
+                }`}
+              >
+                {labels.translated}
+              </button>
+              <button
+                onClick={() => setShowOriginal(true)}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
+                  showOriginal ? "bg-white text-ink shadow-sm" : "text-ink-light hover:text-ink"
+                }`}
+              >
+                {labels.original}
+              </button>
+            </div>
+            {loading && (
+              <span className="flex items-center gap-1.5 text-sm text-ink-light">
+                <svg className="w-4 h-4 spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                {labels.loading}
+              </span>
+            )}
+          </div>
+
+          {/* Content */}
+          {err ? (
+            <p className="text-sm text-red-500">
+              {labels.failed}：{err}
+            </p>
+          ) : loading ? (
+            <div className="space-y-3">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="h-4 skeleton rounded" style={{ width: `${100 - (i % 3) * 12}%` }} />
+              ))}
+            </div>
+          ) : shownText ? (
+            <div className="whitespace-pre-line text-[15px] leading-relaxed text-ink">
+              {shownText}
+            </div>
+          ) : (
+            <p className="text-sm text-ink-light">{content.summary || "—"}</p>
+          )}
+
+          {/* External original link */}
+          <div className="mt-6 pt-4 border-t border-border">
+            <a
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:text-accent-hover transition-colors duration-200"
+            >
+              {labels.link}
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -19,6 +19,9 @@ create table if not exists public.news_items (
   summary_zh        text,
   summary_es        text,
   image_url         text,
+  content_original  text,
+  content_zh        text,
+  content_es        text,
   published_at      timestamptz,
   fetched_at        timestamptz not null default now(),
   created_at        timestamptz not null default now()

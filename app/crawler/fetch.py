@@ -22,6 +22,7 @@ USER_AGENT = (
 TIMEOUT = 15  # seconds
 RETRIES = 2
 SUMMARY_MAX_CHARS = 300
+CONTENT_MAX_CHARS = 12000  # cap for stored full article text
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif")
 
 _IMG_TAG_RE = re.compile(r"<img\b[^>]*?\ssrc=[\"']([^\"']+)[\"']", re.IGNORECASE)
@@ -222,13 +223,16 @@ def parse_entries(feed: dict, parsed: Any) -> list[dict]:
             continue
 
         body_html = _entry_body_html(entry)
-        summary = clean_html(entry.get("summary")) or clean_html(body_html)
+        body_text = clean_html(body_html)
+        summary = clean_html(entry.get("summary")) or body_text
+        content_full = (body_text or summary).strip()
 
         items.append(
             {
                 "title": title,
                 "url": normalize_url(link),
                 "summary": truncate(summary),
+                "content": content_full[:CONTENT_MAX_CHARS],
                 "image_url": extract_image(entry),
                 "published_at": _entry_published(entry),
                 "topic": feed["topic"],

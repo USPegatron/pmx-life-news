@@ -29,6 +29,7 @@ sys.path.insert(0, str(CRAWLER_DIR))
 
 from feeds import FEEDS
 from fetch import fetch_feed, normalize_url, url_hash
+from filters import is_relevant
 from translate import DeepLTranslator, describe_plan
 
 try:  # optional locally; in GitHub Actions the vars come from secrets
@@ -127,6 +128,7 @@ def build_row(entry: dict) -> dict:
         "summary_zh": None,
         "summary_es": None,
         "image_url": entry.get("image_url"),
+        "content_original": (entry.get("content") or summary or None),
         "published_at": published.isoformat() if published else None,
     }
     row[f"title_{lang}"] = entry["title"]
@@ -148,8 +150,15 @@ def crawl(now: datetime) -> tuple[list[dict], int, int]:
     for feed in FEEDS:
         try:
             raw_items = fetch_feed(feed)
-            kept = filter_entries(raw_items, now)
-            log.info("%-22s kept=%d (<=%dh, newest first)", feed["name"], len(kept), MAX_AGE_HOURS)
+            fresh = filter_entries(raw_items, now)
+            kept = [item for item in fresh if is_relevant(item)]
+            log.info(
+                "%-22s kept=%d (of %d fresh, <=%dh, relevant only)",
+                feed["name"],
+                len(kept),
+                len(fresh),
+                MAX_AGE_HOURS,
+            )
             entries.extend(kept)
             feeds_ok += 1
         except Exception as exc:  # noqa: BLE001 - never abort the whole run

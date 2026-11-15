@@ -11,6 +11,9 @@ export interface NewsItem {
   summary_en: string | null;
   summary_zh: string | null;
   summary_es: string | null;
+  content_original: string | null;
+  content_zh: string | null;
+  content_es: string | null;
   image_url: string | null;
   published_at: string | null;
   fetched_at: string;
