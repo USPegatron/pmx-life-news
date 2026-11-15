@@ -1,43 +1,39 @@
-=== HANDOFF 2026-11-14 21:10 UTC（關機前 checkpoint）===
+=== HANDOFF 2026-11-15（全功能上線）===
 
-[目前狀態]
-- 專案檔案還在舊位置：C:\Users\Jacky2_Wang\Desktop\opencode_project\border-aviation-news\
-  （含 crawler/、webui/、supabase/schema.sql、.github/workflows/crawler.yml、README.md、.gitignore）
-- 本資料夾（PMX - Life News）是目標位置；搬遷尚未執行。
-- 爬蟲已 100% 完成並逐檔驗證；webui 的 designer lane 在關機時可能中斷（最後活動 21:05 UTC）。
+[目前狀態] 全部完成並上線
+- 網站：https://pmx-life-news.vercel.app （Vercel Hobby；root dir = app/webui；Next.js 15）
+- Repo：github.com/USPegatron/pmx-life-news （public；main 為最新）
+- 資料庫：Supabase 專案 PMX-News（ref xahuxyrnyzaeosecziwz，us-east-1）；表 public.news_items；RLS 公開唯讀
+- 爬蟲：GitHub Actions「news-crawler」，cron 每整點；11 feeds → 去重 → 相關性過濾 → DeepL 翻譯 → 寫 Supabase
+- 目前資料約 55 筆（相關性過濾後，全部含 content_original 全文）
 
-[恢復步驟（依序執行）]
-1. 確認/完成 webui：
-   - designer 子 session: ses_e2423587effew3KDnAxKfZ4U5d（可 task_status 查詢 / 繼續該 session）
-   - 若已產出：讀 webui/ 檔案驗證 + 確認 production build 成功
-   - 若中斷：續跑 designer 重建；build 用 portable node：
-     & "C:\Users\Jacky2_Wang\.config\opencode\skills\portable-nodejs\bin\node-v24.14.1-win-x64\npm.cmd" install
-     & "C:\Users\Jacky2_Wang\.config\opencode\skills\portable-nodejs\bin\node-v24.14.1-win-x64\npm.cmd" run build
-     （系統沒有 node on PATH）
-2. 執行搬遷到本資料夾（只搬 source；排除 node_modules/、.next/、__pycache__/、.env）：
-   - 舊/crawler/          → 本資料夾\app\crawler\
-   - 舊/webui/           → 本資料夾\app\webui\
-   - 舊\supabase\        → 本資料夾\app\supabase\
-   - 舊\.github\         → 本資料夾\.github\   （workflow 路徑已是 app/crawler，不用改）
-   - 舊\README.md        → 本資料夾\README.md  （webui root dir 描述改為 app/webui）
-   - 舊\.gitignore       → 本資料夾\.gitignore （加 log 排除：log/* 保留 .gitkeep）
-   - data/、log/、report/ 各放 .gitkeep
-   - 舊位置整顆刪到垃圾桶（非永久刪除）
-3. 補寫 start.bat（選單：1) 本地跑一次爬蟲 2) 本地啟動 webui dev server 3) 結束）
-4. 本資料夾 git init + 首次 commit
-5. 帶用戶完成 4 步設定（內容都在 README.md）：
-   Supabase 建新專案+跑 schema.sql → DeepL 免費 key → GitHub public repo+push+3 secrets
-   （SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / DEEPL_API_KEY）→ Vercel import（root dir app/webui，
-   NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY）
+[功能]
+- 三語：中(繁體)/英/西；中文一律繁體（DeepL target ZH-HANT，UI 標籤亦繁體）
+- 首頁：三語切換、搜尋、主題(邊境/航空)/時間過濾、卡片(含圖)
+- 點卡片 → 閱讀視窗：按需翻譯「當下語言」的完整全文並快取回 DB（同篇不重翻）
+  API：GET /api/translate?id=<uuid>&lang=zh|en|es（Vercel server route；需 DEEPL_API_KEY + SUPABASE_SERVICE_ROLE_KEY）
+- 相關性：只留 Juárez/El Paso 工作生活相關；航空只留與搭機/機場/航班相關；
+  運動/娛樂/名人/星座/彩券等雜訊用關鍵字排除；混合來源(KVIA 會轉載 CNN)需含在地訊號才留
+  規則在 app\crawler\filters.py：EXCLUDE_KEYWORDS / LOCAL_SOURCES / LOCAL_SIGNALS / AVIATION_RELEVANCE_KEYWORDS
 
 [關鍵事實]
-- 爬蟲 11 個 feed 全部實測可用（5 個替換，原因見 feeds.py 註解）
-- Supabase 表：public.news_items（url_hash unique 去重；title_*/summary_* 三語保證非空）
-- GitHub Actions 免費分鐘數只給 public repo（本專案 ~1.5 min/hour，月 ~1100 min < 2000 上限）
-- DeepL 免費 500k 字元/月、1 req/s；爬蟲已內建批次 + throttle + 429/456 處理 + 原文 fallback
-- crawler 本地執行時 log 寫 <root>\log\crawler_YYYYMMDD_HHMMSS.log（CI 不設 LOG_DIR，失敗時 upload artifact）
+- 11 feeds 實測可用：border x6 皆在 RSS 夾帶全文；aviation 僅 The Aviationist / FlightAware 有全文
+- DeepL 免費（帳號顯示 100 萬字/月）；按需翻譯＋快取，用量很省；爬蟲內建批次/限流/429-456/原文 fallback
+- Actions 免費分鐘數只給 public repo（約 1-1.5 min/次，月約 1100 min < 2000）
+- 本機跑爬蟲：python app\crawler\main.py（讀 app\crawler\.env；缺 log 目錄會自動建立）
+- 本機 build webui 用 portable node：
+  C:\Users\Jacky2_Wang\.config\opencode\skills\portable-nodejs\bin\node-v24.14.1-win-x64\npm.cmd
+  （系統 PATH 沒有 node）
+- git push 已設持久憑證（%USERPROFILE%\.git-credentials + credential.helper=store；
+  PortableGit 內建的 manager helper 已停用）；push 走 OA proxy http://localhost:3128
 
-[用戶端待辦（用户會自行執行，README 有完整步驟）]
-- Supabase：有帳號、專案未建（免費方案）
-- DeepL：免費 key 未申請
-- GitHub repo + Vercel：未建
+[憑證位置（不寫入本檔；皆已就位）]
+- 本機 gitignored：app\crawler\.env（SUPABASE_URL / SERVICE_ROLE / DEEPL）、
+  app\webui\.env.local（NEXT_PUBLIC_*）、data\supabase\、根目錄 *.txt 登入備註
+- GitHub repo Secrets：SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / DEEPL_API_KEY
+- Vercel env（Production，Secret）：DEEPL_API_KEY / SUPABASE_SERVICE_ROLE_KEY；
+  另有 NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+[待辦 / 可選]
+- 用戶視覺確認「點卡片的閱讀視窗」排版（API 已實測正常）
+- 若某些新聞仍不想要 / 漏掉：調整 app\crawler\filters.py 關鍵字後 push，下一小時生效
