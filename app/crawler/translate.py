@@ -31,6 +31,10 @@ TRANSLATION_TARGETS: dict[str, tuple[str, ...]] = {
 }
 ALL_LANGUAGES = ("en", "zh", "es")
 
+# Internal language code -> DeepL target_lang code.
+# "zh" maps to ZH-HANT so Chinese output is Traditional, not Simplified.
+DEEPL_TARGET_CODES = {"en": "EN", "es": "ES", "zh": "ZH-HANT"}
+
 
 class DeepLTranslator:
     """Thin DeepL wrapper that mutates item dicts in place."""
@@ -65,7 +69,7 @@ class DeepLTranslator:
 
         payload = {
             "text": texts,
-            "target_lang": target_lang.upper(),
+            "target_lang": DEEPL_TARGET_CODES.get(target_lang, target_lang.upper()),
             "source_lang": source_lang.upper(),
         }
         # DeepL removed the legacy form `auth_key` parameter (now returns HTTP 403);

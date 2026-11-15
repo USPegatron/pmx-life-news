@@ -49,10 +49,10 @@ export function formatRelativeTime(
 
   const labels = {
     zh: {
-      justNow: "刚刚",
-      minute: (n: number) => `${n}分钟前`,
-      hour: (n: number) => `${n}小时前`,
-      day: (n: number) => `${n}天前`,
+      justNow: "剛剛",
+      minute: (n: number) => `${n} 分鐘前`,
+      hour: (n: number) => `${n} 小時前`,
+      day: (n: number) => `${n} 天前`,
       date: (d: Date) =>
         `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`,
     },
@@ -100,7 +100,7 @@ export function formatFullDate(dateStr: string | null, lang: Language): string {
     minute: "2-digit",
   };
 
-  const locale = lang === "zh" ? "zh-CN" : lang === "es" ? "es-ES" : "en-US";
+  const locale = lang === "zh" ? "zh-TW" : lang === "es" ? "es-ES" : "en-US";
   return date.toLocaleDateString(locale, options);
 }
 
@@ -112,13 +112,13 @@ export function getUIStrings(lang: Language) {
     // Header
     hubName:
       lang === "zh"
-        ? "边境与天空"
+        ? "邊境與天空"
         : lang === "es"
         ? "Frontera y Vuelo"
         : "Border & Flight",
     hubSubtitle:
       lang === "zh"
-        ? "埃尔帕索 / 华雷斯 × 全球航空"
+        ? "埃爾帕索 / 華雷斯 × 全球航空"
         : lang === "es"
         ? "El Paso / Juárez × Aviación Global"
         : "El Paso / Juárez × Global Aviation",
@@ -131,7 +131,7 @@ export function getUIStrings(lang: Language) {
     // Filters
     searchPlaceholder:
       lang === "zh"
-        ? "搜索标题或摘要..."
+        ? "搜尋標題或摘要..."
         : lang === "es"
         ? "Buscar en títulos o resúmenes..."
         : "Search titles or summaries...",
@@ -140,27 +140,27 @@ export function getUIStrings(lang: Language) {
       lang === "zh" ? "全部" : lang === "es" ? "Todos" : "All Topics",
     topicBorder:
       lang === "zh"
-        ? "边境事务"
+        ? "邊境事務"
         : lang === "es"
         ? "Frontera"
         : "El Paso–Juárez",
     topicAviation:
       lang === "zh" ? "航空" : lang === "es" ? "Aviación" : "Aviation",
 
-    time24h: lang === "zh" ? "24 小时" : lang === "es" ? "24 h" : "24 hours",
+    time24h: lang === "zh" ? "24 小時" : lang === "es" ? "24 h" : "24 hours",
     time7d: lang === "zh" ? "7 天" : lang === "es" ? "7 d" : "7 days",
     timeAll: lang === "zh" ? "全部" : lang === "es" ? "Todo" : "All time",
 
     // Empty state
     emptyTitle:
       lang === "zh"
-        ? "暂无新闻"
+        ? "暫無新聞"
         : lang === "es"
         ? "Sin noticias aún"
         : "No news yet",
     emptyDescription:
       lang === "zh"
-        ? "爬虫每小时运行一次，请稍后再来查看。"
+        ? "爬蟲每小時執行一次，請稍後再來查看。"
         : lang === "es"
         ? "El rastreador se ejecuta cada hora. Vuelve pronto."
         : "The crawler runs hourly. Check back soon.",
@@ -168,42 +168,42 @@ export function getUIStrings(lang: Language) {
     // Error state
     errorTitle:
       lang === "zh"
-        ? "加载失败"
+        ? "載入失敗"
         : lang === "es"
         ? "Error al cargar"
         : "Failed to load",
     errorDescription:
       lang === "zh"
-        ? "无法获取新闻，请重试。"
+        ? "無法取得新聞，請重試。"
         : lang === "es"
         ? "No se pudieron cargar las noticias. Intente de nuevo."
         : "Unable to fetch news. Please try again.",
     retryButton:
-      lang === "zh" ? "重试" : lang === "es" ? "Reintentar" : "Retry",
+      lang === "zh" ? "重試" : lang === "es" ? "Reintentar" : "Retry",
 
     // Card
     readMore:
       lang === "zh"
-        ? "阅读原文"
+        ? "閱讀原文"
         : lang === "es"
         ? "Leer original"
         : "Read original",
 
     // Refresh
     refreshing:
-      lang === "zh" ? "刷新中..." : lang === "es" ? "Actualizando..." : "Refreshing...",
+      lang === "zh" ? "重新整理中..." : lang === "es" ? "Actualizando..." : "Refreshing...",
     lastUpdated:
       lang === "zh"
-        ? "最后更新："
+        ? "最後更新："
         : lang === "es"
         ? "Actualizado:"
         : "Updated:",
     never:
-      lang === "zh" ? "从未" : lang === "es" ? "nunca" : "never",
+      lang === "zh" ? "從未" : lang === "es" ? "nunca" : "never",
 
     // Loading
     loading:
-      lang === "zh" ? "加载中..." : lang === "es" ? "Cargando..." : "Loading...",
+      lang === "zh" ? "載入中..." : lang === "es" ? "Cargando..." : "Loading...",
   };
 }
 
