@@ -23,6 +23,8 @@ log/*
 
 # local credential / source notes — never commit (may contain DB password, keys)
 data/supabase/
-supabase by USPegatron.txt
 *.secret
 *.secrets
+# root-level scratch .txt notes (creds etc.); keep handoff.txt tracked
+/*.txt
+!/handoff.txt
