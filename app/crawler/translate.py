@@ -64,18 +64,20 @@ class DeepLTranslator:
             raise RuntimeError("DeepL quota exhausted earlier in this run")
 
         payload = {
-            "auth_key": self.api_key,
             "text": texts,
             "target_lang": target_lang.upper(),
             "source_lang": source_lang.upper(),
         }
+        # DeepL removed the legacy form `auth_key` parameter (now returns HTTP 403);
+        # authentication must be sent in the Authorization header.
+        headers = {"Authorization": f"DeepL-Auth-Key {self.api_key}"}
 
         for attempt in (1, 2):
             self._throttle()
             self._last_request_at = time.monotonic()
             self.request_count += 1
             response = requests.post(
-                self.endpoint, data=payload, timeout=REQUEST_TIMEOUT
+                self.endpoint, data=payload, headers=headers, timeout=REQUEST_TIMEOUT
             )
 
             if response.status_code == 429:
