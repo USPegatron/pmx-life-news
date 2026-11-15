@@ -200,10 +200,22 @@ export function getUIStrings(lang: Language) {
         : "Updated:",
     never:
       lang === "zh" ? "從未" : lang === "es" ? "nunca" : "never",
+    refreshLabel:
+      lang === "zh" ? "重新整理" : lang === "es" ? "Actualizar" : "Refresh",
 
     // Loading
     loading:
       lang === "zh" ? "載入中..." : lang === "es" ? "Cargando..." : "Loading...",
+
+    // Cycling button labels (accessibility)
+    languageLabel:
+      lang === "zh" ? "語言" : lang === "es" ? "Idioma" : "Language",
+    topicFilterLabel:
+      lang === "zh" ? "主題" : lang === "es" ? "Tema" : "Topic",
+    timeFilterLabel:
+      lang === "zh" ? "時間" : lang === "es" ? "Tiempo" : "Time",
+    tapToChange:
+      lang === "zh" ? "輕觸切換" : lang === "es" ? "toque para cambiar" : "tap to change",
   };
 }
 

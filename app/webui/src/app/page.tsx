@@ -113,169 +113,156 @@ export default function Home() {
     fetchNews(true);
   };
 
-  // Language toggle handler
-  const handleLanguageChange = (lang: Language) => {
-    setLanguage(lang);
+  // Cycling handlers for merged toggle buttons
+  const cycleLanguage = () => {
+    const order: Language[] = ["zh", "en", "es"];
+    const idx = order.indexOf(language);
+    setLanguage(order[(idx + 1) % order.length]);
+  };
+
+  const cycleTopic = () => {
+    const order: TopicFilter[] = ["all", "border", "aviation"];
+    const idx = order.indexOf(topicFilter);
+    setTopicFilter(order[(idx + 1) % order.length]);
+  };
+
+  const cycleTime = () => {
+    const order: TimeFilter[] = ["24h", "7d", "all"];
+    const idx = order.indexOf(timeFilter);
+    setTimeFilter(order[(idx + 1) % order.length]);
+  };
+
+  // Get current label for each cycling button
+  const getCurrentLanguageLabel = () => {
+    if (language === "zh") return ui.langZh;
+    if (language === "es") return ui.langEs;
+    return ui.langEn;
+  };
+
+  const getCurrentTopicLabel = () => {
+    if (topicFilter === "all") return ui.topicAll;
+    if (topicFilter === "border") return ui.topicBorder;
+    return ui.topicAviation;
+  };
+
+  const getCurrentTimeLabel = () => {
+    if (timeFilter === "24h") return ui.time24h;
+    if (timeFilter === "7d") return ui.time7d;
+    return ui.timeAll;
   };
 
   return (
     <main className="min-h-screen">
-      {/* Header */}
+      {/* Sticky Control Bar - Fixed at top, exactly 2 rows on mobile */}
       <header className="sticky top-0 z-50 bg-paper/95 backdrop-blur-sm border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:py-5">
-            {/* Hub name */}
-            <div className="flex-shrink-0">
-              <h1 className="text-2xl sm:text-3xl font-display font-semibold text-ink tracking-tight">
-                {ui.hubName}
-              </h1>
-              <p className="text-sm text-ink-light mt-0.5 font-body">
-                {ui.hubSubtitle}
-              </p>
-            </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          {/* Row 1: Cycling controls + Refresh (mobile: 4 compact buttons side-by-side) */}
+          <div className="flex items-center gap-2">
+            {/* Language cycling button */}
+            <button
+              onClick={cycleLanguage}
+              className="flex-1 sm:flex-none min-w-[80px] px-3 py-2.5 text-sm font-medium
+                bg-white border border-border rounded-lg text-ink
+                hover:border-accent/50 hover:text-accent
+                transition-all duration-200 touch-target"
+              aria-label={`${ui.languageLabel}: ${getCurrentLanguageLabel()} — ${ui.tapToChange}`}
+            >
+              {getCurrentLanguageLabel()}
+            </button>
 
-            {/* Controls row */}
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Language toggle */}
-              <div className="flex items-center bg-ink/5 rounded-lg p-1" role="group" aria-label="Language selection">
-                {(["zh", "en", "es"] as Language[]).map((lang, idx) => (
-                  <button
-                    key={lang}
-                    onClick={() => handleLanguageChange(lang)}
-                    className={`
-                      px-3 py-2 text-sm font-medium rounded-md transition-all duration-200
-                      ${language === lang
-                        ? "bg-white text-ink shadow-sm"
-                        : "text-ink-light hover:text-ink"
-                      }
-                      ${idx === 0 ? "rounded-l-md" : ""}
-                      ${idx === 2 ? "rounded-r-md" : ""}
-                    `}
-                    aria-pressed={language === lang}
-                  >
-                    {lang === "zh" ? ui.langZh : lang === "es" ? ui.langEs : ui.langEn}
-                  </button>
-                ))}
-              </div>
+            {/* Topic cycling button */}
+            <button
+              onClick={cycleTopic}
+              className="flex-1 sm:flex-none min-w-[80px] px-3 py-2.5 text-sm font-medium
+                bg-white border border-border rounded-lg text-ink
+                hover:border-accent/50 hover:text-accent
+                transition-all duration-200 touch-target"
+              aria-label={`${ui.topicFilterLabel}: ${getCurrentTopicLabel()} — ${ui.tapToChange}`}
+            >
+              {getCurrentTopicLabel()}
+            </button>
 
-              {/* Refresh button */}
-              <button
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className={`
-                  flex items-center gap-2 px-3 py-2 text-sm font-medium
-                  rounded-lg border border-border bg-white
-                  text-ink-light hover:text-accent hover:border-accent/50
-                  transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
-                  no-print
-                `}
-                aria-label={ui.refreshing}
+            {/* Time cycling button */}
+            <button
+              onClick={cycleTime}
+              className="flex-1 sm:flex-none min-w-[80px] px-3 py-2.5 text-sm font-medium
+                bg-white border border-border rounded-lg text-ink
+                hover:border-accent/50 hover:text-accent
+                transition-all duration-200 touch-target"
+              aria-label={`${ui.timeFilterLabel}: ${getCurrentTimeLabel()} — ${ui.tapToChange}`}
+            >
+              {getCurrentTimeLabel()}
+            </button>
+
+            {/* Refresh button */}
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="flex-shrink-0 px-3 py-2.5 text-sm font-medium
+                bg-white border border-border rounded-lg
+                text-ink-light hover:text-accent hover:border-accent/50
+                transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
+                touch-target no-print"
+              aria-label={`${ui.refreshLabel}${lastFetched && !isRefreshing ? ` (${formatRelativeTime(lastFetched.toISOString(), language)})` : ""}`}
+            >
+              <svg
+                className={`w-4 h-4 ${isRefreshing ? "spin" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                <svg
-                  className={`w-4 h-4 ${isRefreshing ? "spin" : ""}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  />
-                </svg>
-                <span className="hidden sm:inline">{isRefreshing ? ui.refreshing : ui.lastUpdated}</span>
-                {lastFetched && !isRefreshing && (
-                  <span className="text-xs text-ink-light">
-                    {formatRelativeTime(lastFetched.toISOString(), language)}
-                  </span>
-                )}
-              </button>
-            </div>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+            </button>
           </div>
 
-          {/* Filters bar */}
-          <div className="flex flex-col gap-3 pb-4 no-print">
-            {/* Search - full width on mobile */}
-            <div className="w-full">
-              <div className="relative">
-                <svg
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-light"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={ui.searchPlaceholder}
-                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-border rounded-lg
-                    text-ink placeholder-ink-light
-                    focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent
-                    transition-all duration-200"
+          {/* Row 2: Full-width search input */}
+          <div className="mt-2 w-full no-print">
+            <div className="relative">
+              <svg
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-light"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                 />
-              </div>
-            </div>
-
-            {/* Filter buttons - horizontally scrollable on small screens */}
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Topic filter */}
-              <div className="flex items-center gap-1 bg-ink/5 rounded-lg p-1">
-                {[
-                  { value: "all", label: ui.topicAll },
-                  { value: "border", label: ui.topicBorder },
-                  { value: "aviation", label: ui.topicAviation },
-                ].map((topic) => (
-                  <button
-                    key={topic.value}
-                    onClick={() => setTopicFilter(topic.value as TopicFilter)}
-                    className={`
-                      px-3 py-2 text-sm font-medium rounded-md transition-all duration-200
-                      ${topicFilter === topic.value
-                        ? "bg-white text-ink shadow-sm"
-                        : "text-ink-light hover:text-ink"
-                      }
-                    `}
-                  >
-                    {topic.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Time filter */}
-              <div className="flex items-center gap-1 bg-ink/5 rounded-lg p-1">
-                {[
-                  { value: "24h", label: ui.time24h },
-                  { value: "7d", label: ui.time7d },
-                  { value: "all", label: ui.timeAll },
-                ].map((time) => (
-                  <button
-                    key={time.value}
-                    onClick={() => setTimeFilter(time.value as TimeFilter)}
-                    className={`
-                      px-3 py-2 text-sm font-medium rounded-md transition-all duration-200
-                      ${timeFilter === time.value
-                        ? "bg-white text-ink shadow-sm"
-                        : "text-ink-light hover:text-ink"
-                      }
-                    `}
-                  >
-                    {time.label}
-                  </button>
-                ))}
-              </div>
+              </svg>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={ui.searchPlaceholder}
+                className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-border rounded-lg
+                  text-ink placeholder-ink-light
+                  focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent
+                  transition-all duration-200"
+              />
             </div>
           </div>
         </div>
       </header>
+
+      {/* Hub Title Bar (scrolls away) */}
+      <div className="bg-paper border-b border-border no-print">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <h1 className="text-2xl sm:text-3xl font-display font-semibold text-ink tracking-tight">
+            {ui.hubName}
+          </h1>
+          <p className="text-sm text-ink-light mt-0.5 font-body">
+            {ui.hubSubtitle}
+          </p>
+        </div>
+      </div>
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
