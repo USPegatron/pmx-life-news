@@ -1,0 +1,28 @@
+# env
+.env
+.env.local
+.env*.local
+
+# node
+node_modules/
+.next/
+out/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+
+# misc
+.DS_Store
+*.log
+
+# logs (keep the folder, track .gitkeep only)
+log/*
+!log/.gitkeep
+
+# local credential / source notes — never commit (may contain DB password, keys)
+data/supabase/
+supabase by USPegatron.txt
+*.secret
+*.secrets

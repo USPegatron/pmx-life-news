@@ -1,0 +1,57 @@
+name: news-crawler
+
+on:
+  schedule:
+    # Every hour on the hour (UTC).
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: news-crawler
+  cancel-in-progress: false
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # PIP cache: keeps hourly runs short by skipping wheel downloads.
+      # (setup-python's built-in `cache: pip` targets the same ~/.cache/pip
+      # directory and would create duplicate cache entries, so it is not used.)
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('app/crawler/requirements.txt') }}
+          restore-keys: |
+            pip-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pip install -r app/crawler/requirements.txt
+
+      - name: Run crawler
+        working-directory: app/crawler
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DEEPL_API_KEY: ${{ secrets.DEEPL_API_KEY }}
+        run: python main.py
+
+      # Failed runs cannot be inspected after the job ends otherwise.
+      - name: Upload crawler log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crawler-log
+          path: log/
+          if-no-files-found: warn
+          retention-days: 7

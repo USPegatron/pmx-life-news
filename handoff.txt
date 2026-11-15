@@ -1,0 +1,43 @@
+=== HANDOFF 2026-11-14 21:10 UTC（關機前 checkpoint）===
+
+[目前狀態]
+- 專案檔案還在舊位置：C:\Users\Jacky2_Wang\Desktop\opencode_project\border-aviation-news\
+  （含 crawler/、webui/、supabase/schema.sql、.github/workflows/crawler.yml、README.md、.gitignore）
+- 本資料夾（PMX - Life News）是目標位置；搬遷尚未執行。
+- 爬蟲已 100% 完成並逐檔驗證；webui 的 designer lane 在關機時可能中斷（最後活動 21:05 UTC）。
+
+[恢復步驟（依序執行）]
+1. 確認/完成 webui：
+   - designer 子 session: ses_e2423587effew3KDnAxKfZ4U5d（可 task_status 查詢 / 繼續該 session）
+   - 若已產出：讀 webui/ 檔案驗證 + 確認 production build 成功
+   - 若中斷：續跑 designer 重建；build 用 portable node：
+     & "C:\Users\Jacky2_Wang\.config\opencode\skills\portable-nodejs\bin\node-v24.14.1-win-x64\npm.cmd" install
+     & "C:\Users\Jacky2_Wang\.config\opencode\skills\portable-nodejs\bin\node-v24.14.1-win-x64\npm.cmd" run build
+     （系統沒有 node on PATH）
+2. 執行搬遷到本資料夾（只搬 source；排除 node_modules/、.next/、__pycache__/、.env）：
+   - 舊/crawler/          → 本資料夾\app\crawler\
+   - 舊/webui/           → 本資料夾\app\webui\
+   - 舊\supabase\        → 本資料夾\app\supabase\
+   - 舊\.github\         → 本資料夾\.github\   （workflow 路徑已是 app/crawler，不用改）
+   - 舊\README.md        → 本資料夾\README.md  （webui root dir 描述改為 app/webui）
+   - 舊\.gitignore       → 本資料夾\.gitignore （加 log 排除：log/* 保留 .gitkeep）
+   - data/、log/、report/ 各放 .gitkeep
+   - 舊位置整顆刪到垃圾桶（非永久刪除）
+3. 補寫 start.bat（選單：1) 本地跑一次爬蟲 2) 本地啟動 webui dev server 3) 結束）
+4. 本資料夾 git init + 首次 commit
+5. 帶用戶完成 4 步設定（內容都在 README.md）：
+   Supabase 建新專案+跑 schema.sql → DeepL 免費 key → GitHub public repo+push+3 secrets
+   （SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / DEEPL_API_KEY）→ Vercel import（root dir app/webui，
+   NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY）
+
+[關鍵事實]
+- 爬蟲 11 個 feed 全部實測可用（5 個替換，原因見 feeds.py 註解）
+- Supabase 表：public.news_items（url_hash unique 去重；title_*/summary_* 三語保證非空）
+- GitHub Actions 免費分鐘數只給 public repo（本專案 ~1.5 min/hour，月 ~1100 min < 2000 上限）
+- DeepL 免費 500k 字元/月、1 req/s；爬蟲已內建批次 + throttle + 429/456 處理 + 原文 fallback
+- crawler 本地執行時 log 寫 <root>\log\crawler_YYYYMMDD_HHMMSS.log（CI 不設 LOG_DIR，失敗時 upload artifact）
+
+[用戶端待辦（用户會自行執行，README 有完整步驟）]
+- Supabase：有帳號、專案未建（免費方案）
+- DeepL：免費 key 未申請
+- GitHub repo + Vercel：未建
