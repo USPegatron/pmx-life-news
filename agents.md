@@ -36,7 +36,10 @@ report	     - all generated report, save here
   （原候補 El Paso Tribune/El Paso Times/El Vigía/El Diario/La Opinión 因 dead domain / 402 / 403 / 無 RSS 而替換）
 - Aviation x5：Simple Flying, Aviation Pros, The Aviationist, FlightAware Blog, The Air Current
 
-### 狀態（2026-11-14 21:10 UTC 存檔）
-- [完成] 爬蟲 7 檔全部寫好並驗證（py_compile OK；workflow yaml OK）
-- [進行中] webui（designer lane；若關機中斷，依 handoff.txt 續做）
-- [未開始] 從 `C:\Users\Jacky2_Wang\Desktop\opencode_project\border-aviation-news\` 搬遷到本資料夾、start.bat、git init、用戶端 4 步設定
+### 狀態（2026-11-14 全線上線完成）
+- [完成] 專案已搬遷至本資料夾；`app\crawler`、`app\webui`、`app\supabase`、`.github` 全部就位；`start.bat` 完成
+- [完成] 爬蟲：11 feeds 實測通過；修正 `main.py` 缺 `log` logger、`translate.py` DeepL 認證改為 `Authorization: DeepL-Auth-Key` 標頭（DeepL 已移除 form auth_key）
+- [完成] Supabase：專案 PMX-News（ref `xahuxyrnyzaeosecziwz`，us-east-1），`schema.sql` 已部署，`news_items` 已有多筆資料
+- [完成] GitHub：`github.com/USPegatron/pmx-life-news`（public）；Actions cron 每小時；3 個 secrets（SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / DEEPL_API_KEY）；手動 run 實測成功（85 筆三語）
+- [完成] Vercel：`https://pmx-life-news.vercel.app`（Hobby，root dir `app/webui`）；線上三語切換 / 搜尋 / 主題時間過濾正常
+- 憑證檔（皆 gitignored，勿 commit）：`app\crawler\.env`、`app\webui\.env.local`、`data\supabase\`、根目錄 `*.txt` 登入備註
