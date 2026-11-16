@@ -40,6 +40,8 @@ EXCLUDE_KEYWORDS: tuple[str, ...] = (
     "kardashian", "actor ", "actriz",
     # --- lottery / pure noise ---
     "lotería", "loteria", "melate",
+    # --- national politics (not local Juárez / El Paso life) ---
+    "palacio nacional", "mañanera", "mananera del pueblo",
 )
 
 # Outlets that are purely local — their border items are trusted as relevant.
@@ -71,12 +73,20 @@ LOCAL_SIGNALS: tuple[str, ...] = (
 # ground stops, FAA rules, airline policy, routes) — not general aviation
 # industry / military / space filler.
 AVIATION_RELEVANCE_KEYWORDS: tuple[str, ...] = (
-    "el paso", "juárez", "juarez", "airport", "aeropuerto", "airline",
-    "aerolínea", "aerolinea", "vuelo", "flight", "air traffic", "faa",
-    "delay", "delayed", "retraso", "cancel", "cancelación", "cancelacion",
-    "ground stop", "grounded", "ban on flights", "flight ban", "overbook",
-    "policy", "política", "politica", "rule", "regulation", "route", "ruta",
-    "ticket", "tarifa", "pasajero", "passenger", "terminal", "volar",
+    # delays / cancellations
+    "delay", "delayed", "retraso", "retrasos",
+    "cancel", "canceled", "cancelled", "cancellation", "cancelación", "cancelado",
+    "ground stop", "grounded", "overbook", "overbooking",
+    # policy / rules
+    "policy", "política", "politica", "rule", "regulation",
+    "faa", "air traffic control",
+    # incidents
+    "accident", "accidente", "incident", "incidente",
+    "emergency", "emergencia", "divert", "desvío",
+    # operational
+    "strike", "huelga", "refund", "reembolso", "baggage", "equipaje",
+    "tarmac", "outage", "shutdown", "cierre",
+    "disruption", "afectación", "ban on flights", "flight ban", "prohibición",
 )
 
 
