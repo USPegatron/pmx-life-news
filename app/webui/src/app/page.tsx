@@ -161,44 +161,56 @@ export default function Home() {
             {/* Language cycling button */}
             <button
               onClick={cycleLanguage}
-              className="flex-1 sm:flex-none min-w-[80px] px-3 py-2.5 text-sm font-medium
+              className="flex-1 sm:flex-none sm:min-w-[96px] min-w-0 inline-flex items-center justify-center gap-1.5 px-2.5 py-2.5 text-[13px] sm:text-sm font-medium
                 bg-white border border-border rounded-lg text-ink
                 hover:border-accent/50 hover:text-accent
                 transition-all duration-200 touch-target"
               aria-label={`${ui.languageLabel}: ${getCurrentLanguageLabel()} — ${ui.tapToChange}`}
             >
-              {getCurrentLanguageLabel()}
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 21a9 9 0 100-18 9 9 0 000 18z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.6 9h16.8M3.6 15h16.8" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3c2.5 2.4 4 5.7 4 9s-1.5 6.6-4 9c-2.5-2.4-4-5.7-4-9s1.5-6.6 4-9z" />
+              </svg>
+              <span className="truncate">{getCurrentLanguageLabel()}</span>
             </button>
 
             {/* Topic cycling button */}
             <button
               onClick={cycleTopic}
-              className="flex-1 sm:flex-none min-w-[80px] px-3 py-2.5 text-sm font-medium
+              className="flex-1 sm:flex-none sm:min-w-[96px] min-w-0 inline-flex items-center justify-center gap-1.5 px-2.5 py-2.5 text-[13px] sm:text-sm font-medium
                 bg-white border border-border rounded-lg text-ink
                 hover:border-accent/50 hover:text-accent
                 transition-all duration-200 touch-target"
               aria-label={`${ui.topicFilterLabel}: ${getCurrentTopicLabel()} — ${ui.tapToChange}`}
             >
-              {getCurrentTopicLabel()}
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.83z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01" />
+              </svg>
+              <span className="truncate">{getCurrentTopicLabel()}</span>
             </button>
 
             {/* Time cycling button */}
             <button
               onClick={cycleTime}
-              className="flex-1 sm:flex-none min-w-[80px] px-3 py-2.5 text-sm font-medium
+              className="flex-1 sm:flex-none sm:min-w-[96px] min-w-0 inline-flex items-center justify-center gap-1.5 px-2.5 py-2.5 text-[13px] sm:text-sm font-medium
                 bg-white border border-border rounded-lg text-ink
                 hover:border-accent/50 hover:text-accent
                 transition-all duration-200 touch-target"
               aria-label={`${ui.timeFilterLabel}: ${getCurrentTimeLabel()} — ${ui.tapToChange}`}
             >
-              {getCurrentTimeLabel()}
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="truncate">{getCurrentTimeLabel()}</span>
             </button>
 
             {/* Refresh button */}
             <button
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="flex-shrink-0 px-3 py-2.5 text-sm font-medium
+              className="flex-shrink-0 inline-flex items-center justify-center px-3 py-2.5 text-sm font-medium
                 bg-white border border-border rounded-lg
                 text-ink-light hover:text-accent hover:border-accent/50
                 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed

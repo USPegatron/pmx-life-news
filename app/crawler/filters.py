@@ -53,22 +53,30 @@ LOCAL_SOURCES: frozenset[str] = frozenset({
     "juarez noticias",
 })
 
-# For border items from mixed / syndicating outlets: require a local signal.
+# ~100-mile radius around Juárez / El Paso. A border/transport item from a
+# MIXED outlet (e.g. KVIA syndicating CNN) must mention one of these places
+# (or a local border-crossing term) to be kept.
 LOCAL_SIGNALS: tuple[str, ...] = (
-    "el paso", "juárez", "juarez", "frontera", "border", "migra", "inmigra",
-    "aduana", "deporta", "asilo", "cruce", "las cruces", "santa teresa",
-    "san elizario", "socorro", "horizon city", "paso del norte", "chamizal",
-    "ciudad juárez", "el paso county", "texas border", "río grande",
-    "rio grande", "puerto de entrada", "port of entry", "consulado",
-    "consulate", "maquila", "maquiladora", "nearshoring", "cbp", "uscis",
+    "el paso", "juárez", "juarez", "ciudad juárez", "las cruces",
+    "santa teresa", "san elizario", "socorro", "horizon city", "sunland park",
+    "anthony", "canutillo", "chaparral", "doña ana", "dona ana", "mesilla",
+    "alamogordo", "deming", "tornillo", "clint", "fabens", "fort hancock",
+    "vado", "berino", "la mesa", "san miguel", "chamizal", "paso del norte",
+    "borderland", "el paso county", "río grande", "rio grande",
+    "puerto de entrada", "port of entry", "aduana", "cruce", "maquila",
+    "maquiladora",
 )
 
-# For aviation items: require at least one travel signal.
+# Aviation: focus on FLIGHT PROBLEMS / POLICIES (delays, cancellations,
+# ground stops, FAA rules, airline policy, routes) — not general aviation
+# industry / military / space filler.
 AVIATION_RELEVANCE_KEYWORDS: tuple[str, ...] = (
-    "el paso", "juárez", "juarez", "airport", "aeropuerto", "aerolinea",
-    "aerolínea", "airline", "vuelo", "flight", "faa", "delay", "retraso",
-    "cancel", "ground stop", "aviación", "aviacion", "pasajero", "passenger",
-    "terminal", "volar",
+    "el paso", "juárez", "juarez", "airport", "aeropuerto", "airline",
+    "aerolínea", "aerolinea", "vuelo", "flight", "air traffic", "faa",
+    "delay", "delayed", "retraso", "cancel", "cancelación", "cancelacion",
+    "ground stop", "grounded", "ban on flights", "flight ban", "overbook",
+    "policy", "política", "politica", "rule", "regulation", "route", "ruta",
+    "ticket", "tarifa", "pasajero", "passenger", "terminal", "volar",
 )
 
 
