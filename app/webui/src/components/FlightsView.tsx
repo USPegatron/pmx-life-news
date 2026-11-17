@@ -1073,18 +1073,12 @@ function CompactFlightCard({
   const now = Date.now();
   const depMs = flight.scheduled_dep ? new Date(flight.scheduled_dep).getTime() : Infinity;
   const arrMs = flight.scheduled_arr ? new Date(flight.scheduled_arr).getTime() : Infinity;
+  // Labels shown only when actual time is not yet available.
+  // "已起飛"/"飛行中"/"已抵達" removed — column position already conveys that.
   const notYetDepLabel =
-    language === "zh"
-      ? now < depMs ? "待出發" : "已起飛"
-      : language === "es"
-      ? now < depMs ? "sin salida" : "despegado"
-      : now < depMs ? "not departed" : "departed";
+    language === "zh" ? "待出發" : language === "es" ? "sin salida" : "not departed";
   const notYetArrLabel =
-    language === "zh"
-      ? now < depMs ? "待抵達" : now < arrMs ? "飛行中" : "已抵達"
-      : language === "es"
-      ? now < depMs ? "sin llegada" : now < arrMs ? "en vuelo" : "llegado"
-      : now < depMs ? "not arrived" : now < arrMs ? "in flight" : "arrived";
+    language === "zh" ? "待抵達" : language === "es" ? "sin llegada" : "not arrived";
 
   return (
     <div className="group bg-white border border-border rounded-md px-3 py-4 transition-colors duration-200 hover:border-accent/40">
@@ -1172,10 +1166,11 @@ function CompactFlightCard({
             →
           </span>
           <ActualTime
-            scheduled={fmtClock(flight.scheduled_dep, flight.dep_airport)}
-            actual={flight.actual_dep ? fmtClock(flight.actual_dep, flight.dep_airport) : null}
+            scheduledIso={flight.scheduled_dep}
+            actualIso={flight.actual_dep}
+            airportCode={flight.dep_airport}
             notYetLabel={notYetDepLabel}
-            onTimeLabel={ui.flightDelayOnTime}
+            language={language}
           />
         </div>
         {/* Spacer — pushes the arr side to the right edge of the card. */}
@@ -1198,10 +1193,11 @@ function CompactFlightCard({
             →
           </span>
           <ActualTime
-            scheduled={fmtClock(flight.scheduled_arr, flight.arr_airport)}
-            actual={flight.actual_arr ? fmtClock(flight.actual_arr, flight.arr_airport) : null}
+            scheduledIso={flight.scheduled_arr}
+            actualIso={flight.actual_arr}
+            airportCode={flight.arr_airport}
             notYetLabel={notYetArrLabel}
-            onTimeLabel={ui.flightDelayOnTime}
+            language={language}
           />
         </div>
       </div>
@@ -1211,39 +1207,66 @@ function CompactFlightCard({
 
 // ---------- ActualTime (the muted annotation after `→` in row 2) ----------
 //
-// Inline-span companion to the new single-line row 2 layout. Renders the
-// ACTUAL time with the same three states the previous Stop component had:
-// missing → `notYetLabel` (italic, very muted), equal to scheduled →
-// `onTimeLabel` (italic, muted), otherwise → the actual clock. Stays a
-// single inline span so it sits on the same baseline as the IATA label
-// and the scheduled time on either side.
+// Shows actual time + delay status:
+//   actual null  → notYetLabel (待出發 / 待抵達)
+//   |diff| ≤ 15  → time + 準點
+//   diff > 15    → time + 延遲 1Hr/30Min
+//   diff < -15   → time + 提早 10Min
+
+function formatDelayMinutes(mins: number, language: Language): string {
+  const abs = Math.abs(mins);
+  const h = Math.floor(abs / 60);
+  const m = abs % 60;
+  const dur = h > 0 ? `${h}Hr/${m}Min` : `${m}Min`;
+  if (language === "zh") {
+    return mins >= 0 ? `延遲 ${dur}` : `提早 ${dur}`;
+  } else if (language === "es") {
+    return mins >= 0 ? `Retraso ${dur}` : `Adelanto ${dur}`;
+  }
+  return mins >= 0 ? `+${dur}` : `-${dur}`;
+}
+
+function onTimeLabel(lang: Language): string {
+  if (lang === "zh") return "準點";
+  if (lang === "es") return "Puntual";
+  return "On time";
+}
 
 function ActualTime({
-  scheduled,
-  actual,
+  scheduledIso,
+  actualIso,
+  airportCode,
   notYetLabel,
-  onTimeLabel,
+  language,
 }: {
-  scheduled: string;
-  actual: string | null;
+  scheduledIso: string | null;
+  actualIso: string | null;
+  airportCode: string | null | undefined;
   notYetLabel: string;
-  onTimeLabel: string;
+  language: Language;
 }) {
-  if (!actual) {
-    // Event hasn't happened yet — just the status label
+  if (!actualIso) {
     return (
       <span className="text-sm text-ink-light/60 italic leading-none shrink-0">
         {notYetLabel}
       </span>
     );
   }
-  const isOnTime = actual === scheduled;
-  // Always show the time + a short label ("準點" if confirmed on-time, otherwise the state word)
+  const actualDisplay = fmtClock(actualIso, airportCode);
+  // Compute delay in minutes
+  let label = onTimeLabel(language);
+  if (scheduledIso) {
+    const diffMs = new Date(actualIso).getTime() - new Date(scheduledIso).getTime();
+    const diffMin = Math.round(diffMs / 60_000);
+    if (Math.abs(diffMin) > 15) {
+      label = formatDelayMinutes(diffMin, language);
+    }
+  }
   return (
     <span className="text-sm text-ink-light leading-none shrink-0 whitespace-nowrap">
-      <span className="tabular-nums">{actual}</span>
+      <span className="tabular-nums">{actualDisplay}</span>
       <span className="text-ink-light/50 ml-1 text-xs italic">
-        {isOnTime ? onTimeLabel : notYetLabel}
+        {label}
       </span>
     </span>
   );
