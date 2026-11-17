@@ -39,7 +39,8 @@ export interface TranslatedContent {
  * flight_number, status, updated_by, created_at, updated_at (all `string`).
  *
  * Nullable fields: scheduled_dep, scheduled_arr, actual_dep, actual_arr,
- * notes (`string | null`); delay_minutes (`number | null`).
+ * notes, airline_name, aircraft_type, archived_at (`string | null`);
+ * delay_minutes, departure_delay_minutes (`number | null`).
  */
 export interface Flight {
   id: string;
@@ -54,6 +55,11 @@ export interface Flight {
   actual_dep: string | null;
   actual_arr: string | null;
   delay_minutes: number | null;
+  departure_delay_minutes: number | null;
+  airline_name: string | null;
+  aircraft_type: string | null;
+  archived_at: string | null;
+  last_checked_at: string | null;
   notes: string | null;
   updated_by: string;
   created_at: string;
