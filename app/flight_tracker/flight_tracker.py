@@ -50,7 +50,7 @@ SERVICE_KEY = (os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or "").strip()
 GEMINI_KEY = (os.environ.get("GEMINI_API_KEY") or "").strip()
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
 
-DEFAULT_POLL_INTERVAL_MIN = 15
+DEFAULT_POLL_INTERVAL_MIN = 5
 COOLDOWN_HOURS = 3  # don't re-check the same flight more often than this
 HORIZON_DAYS = 1     # only check flights whose date is within the next N days
 
@@ -180,7 +180,16 @@ def process_one(flight: dict, log) -> None:
         "updated_by": "ai",
     }
     status = result.get("status")
+    prev_status = flight.get("status") or "scheduled"
     if status and status != "unknown":
+        # Detect status transitions and stamp actual times
+        now_iso = datetime.now(timezone.utc).isoformat()
+        if prev_status == "scheduled" and status == "departed" and not flight.get("actual_dep"):
+            update["actual_dep"] = now_iso
+            log(f"    -> first seen airborne: actual_dep={now_iso}")
+        if status == "arrived" and not flight.get("actual_arr"):
+            update["actual_arr"] = now_iso
+            log(f"    -> first seen on ground at arrival: actual_arr={now_iso}")
         update["status"] = status
     for field in ("actual_dep", "actual_arr"):
         val = result.get(field)
