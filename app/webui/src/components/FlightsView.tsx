@@ -569,15 +569,19 @@ export function FlightsView({ language }: { language: Language }) {
   const { leftFlights, rightFlights } = useMemo(() => {
     const left: Flight[] = [];
     const right: Flight[] = [];
+    const now = Date.now();
     for (const f of flights) {
       if (f.status === "cancelled") {
-        // Cancelled: only go right if the plane somehow landed (actual_arr set).
         if (f.actual_arr) right.push(f);
         else left.push(f);
       } else {
-        // Non-cancelled: go right once actual_dep is set (the plane has left).
-        if (f.actual_dep) right.push(f);
-        else left.push(f);
+        // Go right once the scheduled departure time has passed (or actual_dep is set).
+        const depRef = f.actual_dep ?? f.scheduled_dep;
+        if (depRef && new Date(depRef).getTime() <= now) {
+          right.push(f);
+        } else {
+          left.push(f);
+        }
       }
     }
     left.sort((a, b) => {
@@ -1058,18 +1062,23 @@ function CompactFlightCard({
   // Localised "not yet" labels — inlined here because utils.ts is shared with
   // the rest of the app and we want these strings to ship alongside the card
   // redesign. Trilingual to match the rest of the UI.
+  // Localised status labels — time-based so the card reflects flight state
+  // even without OpenSky/manual actual_dep or actual_arr data.
+  const now = Date.now();
+  const depMs = flight.scheduled_dep ? new Date(flight.scheduled_dep).getTime() : Infinity;
+  const arrMs = flight.scheduled_arr ? new Date(flight.scheduled_arr).getTime() : Infinity;
   const notYetDepLabel =
     language === "zh"
-      ? "未出發"
+      ? now < depMs ? "待出發" : "已起飛"
       : language === "es"
-      ? "sin salida"
-      : "not departed";
+      ? now < depMs ? "sin salida" : "despegado"
+      : now < depMs ? "not departed" : "departed";
   const notYetArrLabel =
     language === "zh"
-      ? "未抵達"
+      ? now < depMs ? "待抵達" : now < arrMs ? "飛行中" : "已抵達"
       : language === "es"
-      ? "sin llegada"
-      : "not arrived";
+      ? now < depMs ? "sin llegada" : now < arrMs ? "en vuelo" : "llegado"
+      : now < depMs ? "not arrived" : now < arrMs ? "in flight" : "arrived";
 
   return (
     <div className="group bg-white border border-border rounded-md px-3 py-4 transition-colors duration-200 hover:border-accent/40">
@@ -1104,10 +1113,10 @@ function CompactFlightCard({
             </>
           )}
           {flight.aircraft_type && (
-            <>
+            <span className="hidden sm:inline">
               <span className="font-body text-ink-light/50"> / </span>
               <span className="font-body text-ink-light">{getAircraftName(flight.aircraft_type)}</span>
-            </>
+            </span>
           )}
         </div>
         {/* Update button — small, opens the existing modal that lets the user
@@ -1123,6 +1132,12 @@ function CompactFlightCard({
           {ui.flightUpdateButton}
         </button>
       </div>
+      {/* Mobile-only: aircraft type on its own line (row 1 is too tight on phones). */}
+      {flight.aircraft_type && (
+        <div className="sm:hidden mt-0.5 pl-5 text-[11px] text-ink-light/60 leading-none">
+          {getAircraftName(flight.aircraft_type)}
+        </div>
+      )}
       {/* Row 2: single-line flight path. Dep side ── flex-1 gap ── Arr side,
           so the whole card reads as a route on one line (PHX 09:05 → 09:10
           … ELP 10:15 → 10:20) instead of two stacked blocks. Each side keeps

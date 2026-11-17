@@ -642,15 +642,18 @@ export type FlightTrafficLight =
  */
 export function flightDepLight(flight: Flight): FlightTrafficLight {
   if (flight.status === "cancelled") return "black";
-  if (!flight.actual_dep && (flight.status === "scheduled" || flight.status === "cancelled")) {
-    if (flight.status === "scheduled") return "hollow";
+  const now = Date.now();
+  const depRef = flight.actual_dep ?? flight.scheduled_dep;
+  if (!depRef) return "hollow";
+  if (now < new Date(depRef).getTime()) return "hollow"; // not yet departed
+  // Departed — check delay if both actual and scheduled are available
+  if (flight.actual_dep && flight.scheduled_dep) {
+    const d = (new Date(flight.actual_dep).getTime() - new Date(flight.scheduled_dep).getTime()) / 60_000;
+    if (d <= -15) return "blue";
+    if (d > 30) return "red";
+    if (d >= 15) return "yellow";
   }
-  const d = flight.departure_delay_minutes;
-  if (d === null || d === undefined || Number.isNaN(d)) return "green";
-  if (d <= -15) return "blue";
-  if (d > 30) return "red";
-  if (d >= 15) return "yellow";
-  return "green";
+  return "green"; // departed on-time (or assumed on-time)
 }
 
 /**
@@ -664,12 +667,22 @@ export function flightDepLight(flight: Flight): FlightTrafficLight {
  */
 export function flightArrLight(flight: Flight): FlightTrafficLight {
   if (flight.status === "cancelled" && !flight.actual_arr) return "black";
-  const d = flight.delay_minutes;
-  if (d === null || d === undefined || Number.isNaN(d)) return "green";
-  if (d <= -15) return "blue";
-  if (d > 30) return "red";
-  if (d >= 15) return "yellow";
-  return "green";
+  const now = Date.now();
+  const arrRef = flight.actual_arr ?? flight.scheduled_arr;
+  const depRef = flight.actual_dep ?? flight.scheduled_dep;
+  if (!arrRef) return "hollow";
+  const arrTime = new Date(arrRef).getTime();
+  const depTime = depRef ? new Date(depRef).getTime() : null;
+  if (depTime && now < depTime) return "hollow"; // not yet departed
+  if (now < arrTime) return "blue"; // in-transit (departed, not yet arrived)
+  // At or past expected arrival — check delay if both actual and scheduled available
+  if (flight.actual_arr && flight.scheduled_arr) {
+    const d = (new Date(flight.actual_arr).getTime() - new Date(flight.scheduled_arr).getTime()) / 60_000;
+    if (d <= -15) return "blue";
+    if (d > 30) return "red";
+    if (d >= 15) return "yellow";
+  }
+  return "green"; // arrived on-time (or assumed on-time)
 }
 
 /** @deprecated kept for back-compat; callers should use flightArrLight() or flightDepLight(). */
