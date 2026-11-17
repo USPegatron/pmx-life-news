@@ -63,22 +63,27 @@ function fmtDate(iso: string | null): string {
   return `${parseInt(m[2], 10)}/${parseInt(m[3], 10)}`;
 }
 
-/** ISO → "YYYY-MM-DDTHH:mm" for <input type="datetime-local">. */
+/** ISO → "YYYY-MM-DDTHH:mm" for <input type="datetime-local">.
+ *  Extracts date+time DIRECTLY from the ISO literal (no browser-timezone conversion),
+ *  so the input shows the airport's local time as stored in the ISO (e.g.
+ *  "2026-11-17T19:40:00+08:00" → "2026-11-17T19:40").
+ */
 function isoToLocalInput(iso: string | null): string {
   if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(
-    d.getHours()
-  )}:${pad2(d.getMinutes())}`;
+  const m = iso.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/);
+  if (!m) return "";
+  return `${m[1]}T${m[2]}:${m[3]}`;
 }
 
-/** "YYYY-MM-DDTHH:mm" → ISO string (or empty). */
-function localInputToIso(local: string): string | null {
+/** "YYYY-MM-DDTHH:mm" → ISO string. Preserves the timezone offset from `originalIso`
+ *  (so the saved value still represents the airport's local time, not the browser's).
+ *  Defaults to +00:00 when no original is supplied.
+ */
+function localInputToIso(local: string | null, originalIso?: string | null): string | null {
   if (!local) return null;
-  const d = new Date(local);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString();
+  const offMatch = (originalIso ?? "").match(/([+-]\d{2}):?(\d{2})$/);
+  const offset = offMatch ? `${offMatch[1]}:${offMatch[2]}` : "+00:00";
+  return `${local}:00${offset}`;
 }
 
 function addMinutes(iso: string | null, minutes: number): string | null {
