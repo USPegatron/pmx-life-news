@@ -12,7 +12,6 @@ import type { Flight, Language } from "@/lib/types";
 import {
   getUIStrings,
   flightDepLight,
-  flightArrLight,
   flightTrafficLight,
   flightTrafficLightClass,
   getAirlineName,
@@ -756,15 +755,21 @@ export function FlightsView({ language }: { language: Language }) {
                   key={i}
                   className="bg-white border border-border rounded-md px-3 py-1.5 space-y-1.5"
                 >
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 skeleton rounded-full" />
-                    <div className="h-4 w-16 skeleton rounded" />
-                    <div className="flex-1" />
-                    <div className="h-3 w-3 skeleton rounded-full" />
-                    <div className="h-3 w-8 skeleton rounded" />
+                  {/* Row 1 (skeleton): one light + 4 segments separated by `/` + update button.
+                      Mirrors the real row 1 layout (single light, single-line meta). */}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="h-3 w-3 skeleton rounded-full shrink-0" />
+                    <div className="flex-1 min-w-0 flex items-center gap-1.5 text-[10px] text-ink-light/40">
+                      <div className="h-3 w-12 skeleton rounded shrink-0" />
+                      <span className="shrink-0">/</span>
+                      <div className="h-3 w-14 skeleton rounded shrink-0" />
+                      <span className="shrink-0">/</span>
+                      <div className="h-3 w-20 skeleton rounded shrink-0" />
+                      <span className="shrink-0">/</span>
+                      <div className="h-3 w-10 skeleton rounded flex-1 min-w-0" />
+                    </div>
+                    <div className="h-3 w-8 skeleton rounded shrink-0" />
                   </div>
-                  <div className="h-3 w-16 skeleton rounded" />
-                  <div className="h-2.5 w-32 skeleton rounded" />
                   <div className="grid grid-cols-2 gap-3">
                     <div className="h-3 w-24 skeleton rounded" />
                     <div className="h-3 w-24 skeleton rounded" />
@@ -916,9 +921,7 @@ function CompactFlightCard({
 }) {
   const ui = getUIStrings(language);
   const depLight: FlightTrafficLight = flightDepLight(flight);
-  const arrLight: FlightTrafficLight = flightArrLight(flight);
   const depDotClass = flightTrafficLightClass(depLight);
-  const arrDotClass = flightTrafficLightClass(arrLight);
   const ref = `${flight.airline_code}${flight.flight_number}`;
   // Airline display name — DB value preferred, IATA lookup as fallback so the
   // user always sees a real name (e.g. "Southwest Airlines") instead of just
@@ -928,27 +931,43 @@ function CompactFlightCard({
 
   return (
     <div className="group bg-white border border-border rounded-md px-3 py-1.5 transition-colors duration-200 hover:border-accent/40">
-      {/* Row 1: dep-light dot + flight_date (prominent) ........ arr-light dot + update button.
-          The two dots sit on the same line as the date and stay `inline-flex`
-          so they vertically center against the date text — their height (h-3,
-          12px) tracks the `text-base` date font for visual balance. */}
+      {/* Row 1: single dep traffic-light dot + meta line (date / flight# / airline [/ aircraft])
+          + update button. ONE light per card. The meta line is wrapped in `truncate`
+          so the entire `date / ref / airline / aircraft` ellipsizes from the right
+          when the column is narrow. Segments are joined with literal ` / ` (one space
+          around the slash); the trailing `/ aircraft` segment is omitted entirely when
+          `aircraft_type` is null. Date uses font-display (Playfair, normal weight);
+          flight# uses font-body + font-semibold (bold); airline + aircraft use font-body
+          at normal weight, lighter color. */}
       <div className="flex items-center gap-2 min-w-0">
-        {/* Left traffic-light dot — leftmost, same row as the date. */}
+        {/* Dep traffic-light dot — single status indicator, leftmost. */}
         <span
           className={`shrink-0 inline-flex w-3 h-3 rounded-full ${depDotClass}`}
           aria-hidden="true"
         />
-        {/* Flight date — prominent. Formatted per locale via ui.flightDateLabel
-            (zh: 2026-11-16 / en: 11/16 / es: 16/11/2026). */}
-        <span className="font-display font-semibold text-base text-ink tracking-tight leading-tight tabular-nums">
-          {ui.flightDateLabel(flight.flight_date)}
-        </span>
-        <div className="flex-1 min-w-0" />
-        {/* Right traffic-light dot — far right of the date row, mirrored. */}
-        <span
-          className={`shrink-0 inline-flex w-3 h-3 rounded-full ${arrDotClass}`}
-          aria-hidden="true"
-        />
+        {/* Meta line — date / flight# / airline [/ aircraft_type]. One line, truncated. */}
+        <div className="flex-1 min-w-0 truncate text-sm leading-tight">
+          {/* Date — display font, normal weight. Localized via ui.flightDateLabel
+              (zh: 2026-11-16 / en: 11/16 / es: 16/11/2026). */}
+          <span className="font-display text-ink tabular-nums">
+            {ui.flightDateLabel(flight.flight_date)}
+          </span>
+          <span className="font-body text-ink-light/50"> / </span>
+          {/* Flight# — bold so it stays scannable when everything's packed. */}
+          <span className="font-body font-semibold text-ink">{ref}</span>
+          {airlineDisplayName && (
+            <>
+              <span className="font-body text-ink-light/50"> / </span>
+              <span className="font-body text-ink-light">{airlineDisplayName}</span>
+            </>
+          )}
+          {flight.aircraft_type && (
+            <>
+              <span className="font-body text-ink-light/50"> / </span>
+              <span className="font-body text-ink-light">{flight.aircraft_type}</span>
+            </>
+          )}
+        </div>
         {/* Update button — small, opens the existing modal. */}
         <button
           onClick={onUpdate}
@@ -961,25 +980,7 @@ function CompactFlightCard({
           {ui.flightUpdateButton}
         </button>
       </div>
-      {/* Row 2: airline_code + flight_number (no space, bold, e.g. WN756). */}
-      <div className="font-display font-semibold text-sm text-ink tracking-tight leading-none mt-1 tabular-nums">
-        {ref}
-      </div>
-      {/* Row 3: airline_name · aircraft_type (only if at least one is present).
-          Aircraft type rendered in mono so IATA codes / type strings stay
-          visually distinct from the prose-style airline name. */}
-      {(airlineDisplayName || flight.aircraft_type) && (
-        <div className="text-[10px] leading-tight text-ink-light truncate mt-0.5">
-          {airlineDisplayName}
-          {airlineDisplayName && flight.aircraft_type && (
-            <span className="mx-1.5 text-ink-light/60">·</span>
-          )}
-          {flight.aircraft_type && (
-            <span className="font-mono">{flight.aircraft_type}</span>
-          )}
-        </div>
-      )}
-      {/* Row 4: dep (left) + arr (right) airport/time. Unchanged from before. */}
+      {/* Row 2: dep (left) + arr (right) airport/time. Unchanged from before. */}
       <div className="grid grid-cols-2 gap-3 mt-1">
         <Stop
           iata={flight.dep_airport}
