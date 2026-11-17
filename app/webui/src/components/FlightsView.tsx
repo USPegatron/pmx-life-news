@@ -1173,7 +1173,7 @@ function CompactFlightCard({
           </span>
           <ActualTime
             scheduled={fmtClock(flight.scheduled_dep, flight.dep_airport)}
-            actual={flight.actual_dep ? fmtClock(flight.actual_dep, flight.dep_airport) : (_departed ? fmtClock(flight.scheduled_dep, flight.dep_airport) : null)}
+            actual={flight.actual_dep ? fmtClock(flight.actual_dep, flight.dep_airport) : null}
             notYetLabel={notYetDepLabel}
             onTimeLabel={ui.flightDelayOnTime}
           />
@@ -1199,7 +1199,7 @@ function CompactFlightCard({
           </span>
           <ActualTime
             scheduled={fmtClock(flight.scheduled_arr, flight.arr_airport)}
-            actual={flight.actual_arr ? fmtClock(flight.actual_arr, flight.arr_airport) : (_departed ? fmtClock(flight.scheduled_arr, flight.arr_airport) : null)}
+            actual={flight.actual_arr ? fmtClock(flight.actual_arr, flight.arr_airport) : null}
             notYetLabel={notYetArrLabel}
             onTimeLabel={ui.flightDelayOnTime}
           />
