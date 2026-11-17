@@ -15,6 +15,7 @@ import {
   flightTrafficLight,
   flightTrafficLightClass,
   getAirlineName,
+  getAircraftName,
   type FlightTrafficLight,
 } from "@/lib/utils";
 
@@ -766,7 +767,7 @@ export function FlightsView({ language }: { language: Language }) {
                       <span className="shrink-0">/</span>
                       <div className="h-3 w-20 skeleton rounded shrink-0" />
                       <span className="shrink-0">/</span>
-                      <div className="h-3 w-10 skeleton rounded flex-1 min-w-0" />
+                      <div className="h-3 w-10 skeleton rounded opacity-60 flex-1 min-w-0" />
                     </div>
                     <div className="h-3 w-8 skeleton rounded shrink-0" />
                   </div>
@@ -964,7 +965,7 @@ function CompactFlightCard({
           {flight.aircraft_type && (
             <>
               <span className="font-body text-ink-light/50"> / </span>
-              <span className="font-body text-ink-light">{flight.aircraft_type}</span>
+              <span className="font-body text-ink-light">{getAircraftName(flight.aircraft_type)}</span>
             </>
           )}
         </div>
