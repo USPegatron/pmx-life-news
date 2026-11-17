@@ -754,13 +754,17 @@ export function FlightsView({ language }: { language: Language }) {
               {[...Array(3)].map((_, i) => (
                 <div
                   key={i}
-                  className="bg-white border border-border rounded-md px-3 py-2 space-y-2"
+                  className="bg-white border border-border rounded-md px-3 py-1.5 space-y-1.5"
                 >
                   <div className="flex items-center gap-2">
-                    <div className="h-2.5 w-2.5 skeleton rounded-full" />
-                    <div className="h-3 w-16 skeleton rounded" />
-                    <div className="h-2.5 w-10 skeleton rounded" />
+                    <div className="h-3 w-3 skeleton rounded-full" />
+                    <div className="h-4 w-16 skeleton rounded" />
+                    <div className="flex-1" />
+                    <div className="h-3 w-3 skeleton rounded-full" />
+                    <div className="h-3 w-8 skeleton rounded" />
                   </div>
+                  <div className="h-3 w-16 skeleton rounded" />
+                  <div className="h-2.5 w-32 skeleton rounded" />
                   <div className="grid grid-cols-2 gap-3">
                     <div className="h-3 w-24 skeleton rounded" />
                     <div className="h-3 w-24 skeleton rounded" />
@@ -916,40 +920,36 @@ function CompactFlightCard({
   const depDotClass = flightTrafficLightClass(depLight);
   const arrDotClass = flightTrafficLightClass(arrLight);
   const ref = `${flight.airline_code}${flight.flight_number}`;
+  // Airline display name — DB value preferred, IATA lookup as fallback so the
+  // user always sees a real name (e.g. "Southwest Airlines") instead of just
+  // the IATA code. Kept as a stable var so the layout below can reference it.
+  const airlineDisplayName =
+    flight.airline_name?.trim() || getAirlineName(flight.airline_code) || "";
 
   return (
     <div className="group bg-white border border-border rounded-md px-3 py-1.5 transition-colors duration-200 hover:border-accent/40">
-      {/* Flight date — prominent on its own line above the row. Formatted per
-          locale via ui.flightDateLabel (zh: 2026-11-16 / en: 11/16 / es: 16/11/2026). */}
-      <div className="font-display font-semibold text-base text-ink tracking-tight leading-tight mb-1 tabular-nums">
-        {ui.flightDateLabel(flight.flight_date)}
-      </div>
-      {/* Airline name — DB value preferred, IATA lookup as fallback so the
-          user always sees a real name (e.g. "Southwest Airlines") instead of
-          just the IATA code. */}
-      {(flight.airline_name?.trim() || getAirlineName(flight.airline_code)) && (
-        <div className="text-[10px] leading-tight text-ink-light truncate mb-0.5">
-          {flight.airline_name?.trim() || getAirlineName(flight.airline_code)}
-        </div>
-      )}
+      {/* Row 1: dep-light dot + flight_date (prominent) ........ arr-light dot + update button.
+          The two dots sit on the same line as the date and stay `inline-flex`
+          so they vertically center against the date text — their height (h-3,
+          12px) tracks the `text-base` date font for visual balance. */}
       <div className="flex items-center gap-2 min-w-0">
-        {/* Left traffic-light dot — IMMEDIATELY left of the flight number */}
+        {/* Left traffic-light dot — leftmost, same row as the date. */}
         <span
-          className={`shrink-0 w-2.5 h-2.5 rounded-full ${depDotClass}`}
+          className={`shrink-0 inline-flex w-3 h-3 rounded-full ${depDotClass}`}
           aria-hidden="true"
         />
-        {/* Flight number (no space, bold) */}
-        <span className="shrink-0 font-display font-semibold text-sm text-ink tracking-tight leading-none">
-          {ref}
+        {/* Flight date — prominent. Formatted per locale via ui.flightDateLabel
+            (zh: 2026-11-16 / en: 11/16 / es: 16/11/2026). */}
+        <span className="font-display font-semibold text-base text-ink tracking-tight leading-tight tabular-nums">
+          {ui.flightDateLabel(flight.flight_date)}
         </span>
-        {/* Aircraft type — only if present, tiny grey */}
-        {flight.aircraft_type && (
-          <span className="shrink-0 text-[10px] text-ink-light/80 font-mono leading-none">
-            {flight.aircraft_type}
-          </span>
-        )}
         <div className="flex-1 min-w-0" />
-        {/* Update button — small, opens the existing modal */}
+        {/* Right traffic-light dot — far right of the date row, mirrored. */}
+        <span
+          className={`shrink-0 inline-flex w-3 h-3 rounded-full ${arrDotClass}`}
+          aria-hidden="true"
+        />
+        {/* Update button — small, opens the existing modal. */}
         <button
           onClick={onUpdate}
           className="shrink-0 inline-flex items-center px-2 py-0.5 text-[10px] font-medium
@@ -960,13 +960,26 @@ function CompactFlightCard({
         >
           {ui.flightUpdateButton}
         </button>
-        {/* Right traffic-light dot — far right, vertically centered */}
-        <span
-          className={`shrink-0 w-2.5 h-2.5 rounded-full ${arrDotClass}`}
-          aria-hidden="true"
-        />
       </div>
-      {/* Thin second line: dep (left) + arr (right) airport/time */}
+      {/* Row 2: airline_code + flight_number (no space, bold, e.g. WN756). */}
+      <div className="font-display font-semibold text-sm text-ink tracking-tight leading-none mt-1 tabular-nums">
+        {ref}
+      </div>
+      {/* Row 3: airline_name · aircraft_type (only if at least one is present).
+          Aircraft type rendered in mono so IATA codes / type strings stay
+          visually distinct from the prose-style airline name. */}
+      {(airlineDisplayName || flight.aircraft_type) && (
+        <div className="text-[10px] leading-tight text-ink-light truncate mt-0.5">
+          {airlineDisplayName}
+          {airlineDisplayName && flight.aircraft_type && (
+            <span className="mx-1.5 text-ink-light/60">·</span>
+          )}
+          {flight.aircraft_type && (
+            <span className="font-mono">{flight.aircraft_type}</span>
+          )}
+        </div>
+      )}
+      {/* Row 4: dep (left) + arr (right) airport/time. Unchanged from before. */}
       <div className="grid grid-cols-2 gap-3 mt-1">
         <Stop
           iata={flight.dep_airport}
