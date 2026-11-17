@@ -1119,7 +1119,7 @@ function CompactFlightCard({
             </>
           )}
           {flight.aircraft_type && (
-            <span className="hidden sm:inline">
+            <span className="hidden md:inline">
               <span className="font-body text-ink-light/50"> / </span>
               <span className="font-body text-ink-light">{getAircraftName(flight.aircraft_type)}</span>
             </span>
@@ -1140,7 +1140,7 @@ function CompactFlightCard({
       </div>
       {/* Mobile-only: aircraft type on its own line (row 1 is too tight on phones). */}
       {flight.aircraft_type && (
-        <div className="sm:hidden mt-0.5 pl-5 text-[11px] text-ink-light/60 leading-none">
+        <div className="md:hidden mt-0.5 pl-5 text-[11px] text-ink-light/60 leading-none">
           {getAircraftName(flight.aircraft_type)}
         </div>
       )}
