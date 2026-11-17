@@ -1,0 +1,20 @@
+name: Flight Tracker Auto-Update
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  check-flights:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger flight check (batch 1)
+        run: |
+          curl -s -X POST "https://pmx-life-news.vercel.app/api/flights/check-now" -H "Content-Type: application/json" -d '{"maxFlights": 3}' --max-time 30
+      - name: Trigger flight check (batch 2)
+        run: |
+          curl -s -X POST "https://pmx-life-news.vercel.app/api/flights/check-now" -H "Content-Type: application/json" -d '{"maxFlights": 3}' --max-time 30
+      - name: Trigger flight check (batch 3)
+        run: |
+          curl -s -X POST "https://pmx-life-news.vercel.app/api/flights/check-now" -H "Content-Type: application/json" -d '{"maxFlights": 3}' --max-time 30
