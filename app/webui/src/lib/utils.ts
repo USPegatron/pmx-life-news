@@ -447,6 +447,30 @@ export function getUIStrings(lang: Language) {
       lang === "zh" ? "新聞" : lang === "es" ? "Noticias" : "News",
     tabFlights:
       lang === "zh" ? "航班追蹤" : lang === "es" ? "Vuelos" : "Flights",
+
+    // -------- Flight columns / archive (added 2026-11) --------
+    flightPendingDeparture:
+      lang === "zh" ? "待出發" : lang === "es" ? "Pendientes" : "Pending",
+    flightInTransit:
+      lang === "zh" ? "已出發" : lang === "es" ? "En tránsito" : "In transit",
+    flightArchiveToggle:
+      lang === "zh"
+        ? "標記為已備份"
+        : lang === "es"
+        ? "Marcar como archivado"
+        : "Mark as archived",
+    flightEmptyDepartures:
+      lang === "zh"
+        ? "目前沒有待出發的航班"
+        : lang === "es"
+        ? "No hay salidas pendientes"
+        : "No pending departures",
+    flightEmptyArrivals:
+      lang === "zh"
+        ? "目前沒有已出發的航班"
+        : lang === "es"
+        ? "No hay vuelos en tránsito"
+        : "No in-transit flights",
   };
 }
 

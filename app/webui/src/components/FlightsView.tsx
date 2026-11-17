@@ -11,6 +11,8 @@ import {
 import type { Flight, Language } from "@/lib/types";
 import {
   getUIStrings,
+  flightDepLight,
+  flightArrLight,
   flightTrafficLight,
   flightTrafficLightClass,
   type FlightTrafficLight,
@@ -39,18 +41,6 @@ function plusDaysISODate(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() + days);
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-}
-
-/** Locale-friendly long date for a flight_date string. */
-function fmtFlightDate(dateStr: string, lang: Language): string {
-  const date = parseFlightDate(dateStr);
-  const locale = lang === "zh" ? "zh-TW" : lang === "es" ? "es-ES" : "en-US";
-  return date.toLocaleDateString(locale, {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
 }
 
 /** "HH:mm" in local time for an ISO timestamp (or empty). */
@@ -96,6 +86,8 @@ interface UpdateForm {
   scheduled_arr: string;
   actual_dep: string;
   actual_arr: string;
+  airline_name: string;
+  aircraft_type: string;
   notes: string;
   updated_by: string;
 }
@@ -106,6 +98,8 @@ const EMPTY_FORM: UpdateForm = {
   scheduled_arr: "",
   actual_dep: "",
   actual_arr: "",
+  airline_name: "",
+  aircraft_type: "",
   notes: "",
   updated_by: "human",
 };
@@ -154,6 +148,9 @@ export function FlightsView({ language }: { language: Language }) {
       params.set("from", "2000-01-01");
       params.set("to", "2100-12-31");
     }
+    // Default to non-archived — the 1h-post-arrival archival is handled by the
+    // daemon on the user's 24/7 machine; the UI just hides already-archived rows.
+    params.set("archived", "false");
     params.set("limit", "500");
     return params;
   }, [range]);
@@ -258,10 +255,10 @@ export function FlightsView({ language }: { language: Language }) {
     // parser can ingest it as-is — the parser drops the header because
     // `flight_date` fails the YYYY-MM-DD regex.
     const csv =
-      "flight_date,dep_airport,arr_airport,airline_code,flight_number\n" +
-      "2026-11-20,TPE,LAX,AA,1234\n" +
-      "2026-11-21,ELP,IAH,UA,4521\n" +
-      "2026-11-22,LAX,TPE,AA,1235\n";
+      "flight_date,dep_airport,arr_airport,airline_code,flight_number,airline_name,aircraft_type,scheduled_dep,scheduled_arr\n" +
+      "2026-11-20,TPE,LAX,AA,1234,American Airlines,B738,2026-11-20T09:10,2026-11-20T10:20\n" +
+      "2026-11-21,ELP,IAH,UA,4521,United Airlines,A320,2026-11-21T07:00,2026-11-21T09:30\n" +
+      "2026-11-22,LAX,TPE,AA,1235,American Airlines,B77W,2026-11-22T13:00,2026-11-22T18:30\n";
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -304,6 +301,8 @@ export function FlightsView({ language }: { language: Language }) {
       scheduled_arr: isoToLocalInput(f.scheduled_arr),
       actual_dep: isoToLocalInput(f.actual_dep),
       actual_arr: isoToLocalInput(f.actual_arr),
+      airline_name: f.airline_name || "",
+      aircraft_type: f.aircraft_type || "",
       notes: f.notes || "",
       updated_by: f.updated_by || "human",
     });
@@ -358,6 +357,16 @@ export function FlightsView({ language }: { language: Language }) {
       const v = localInputToIso(form.actual_arr);
       if (v !== editing.actual_arr) body.actual_arr = v;
     }
+    {
+      const v = form.airline_name.trim();
+      const cur = editing.airline_name || "";
+      if (v !== cur) body.airline_name = v || null;
+    }
+    {
+      const v = form.aircraft_type.trim();
+      const cur = editing.aircraft_type || "";
+      if (v !== cur) body.aircraft_type = v || null;
+    }
     if ((form.notes || "") !== (editing.notes || "")) body.notes = form.notes || "";
     if (form.updated_by && form.updated_by !== editing.updated_by) {
       body.updated_by = form.updated_by;
@@ -389,71 +398,73 @@ export function FlightsView({ language }: { language: Language }) {
     }
   };
 
-  // ----- Group flights by date -----
-
-  const groups = useMemo(() => {
-    const map = new Map<string, Flight[]>();
-    for (const f of flights) {
-      const list = map.get(f.flight_date) ?? [];
-      list.push(f);
-      map.set(f.flight_date, list);
-    }
-    for (const [, list] of map) {
-      list.sort((a, b) => {
-        const at = a.scheduled_dep ? new Date(a.scheduled_dep).getTime() : Number.POSITIVE_INFINITY;
-        const bt = b.scheduled_dep ? new Date(b.scheduled_dep).getTime() : Number.POSITIVE_INFINITY;
-        return at - bt;
+  const handleArchive = async () => {
+    if (!editing) return;
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const res = await fetch(`/api/flights/${editing.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ archived: true }),
       });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(json?.error || `HTTP ${res.status}`);
+      }
+      showToast("success", ui.flightUpdatedToast);
+      closeEdit();
+      await fetchFlights(true);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setIsSaving(false);
     }
-    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+  };
+
+  // ----- Split flights into two columns (left = pending, right = in-transit) -----
+
+  const { leftFlights, rightFlights } = useMemo(() => {
+    const left: Flight[] = [];
+    const right: Flight[] = [];
+    for (const f of flights) {
+      if (f.status === "cancelled") {
+        // Cancelled: only go right if the plane somehow landed (actual_arr set).
+        if (f.actual_arr) right.push(f);
+        else left.push(f);
+      } else {
+        // Non-cancelled: go right once actual_dep is set (the plane has left).
+        if (f.actual_dep) right.push(f);
+        else left.push(f);
+      }
+    }
+    left.sort((a, b) => {
+      const at = a.scheduled_dep
+        ? new Date(a.scheduled_dep).getTime()
+        : Number.POSITIVE_INFINITY;
+      const bt = b.scheduled_dep
+        ? new Date(b.scheduled_dep).getTime()
+        : Number.POSITIVE_INFINITY;
+      return at - bt;
+    });
+    right.sort((a, b) => {
+      const at = a.scheduled_arr
+        ? new Date(a.scheduled_arr).getTime()
+        : Number.POSITIVE_INFINITY;
+      const bt = b.scheduled_arr
+        ? new Date(b.scheduled_arr).getTime()
+        : Number.POSITIVE_INFINITY;
+      return at - bt;
+    });
+    return { leftFlights: left, rightFlights: right };
   }, [flights]);
 
   // ----- Render -----
 
-  const flightRef = editing
-    ? `${editing.airline_code}${editing.flight_number}`
-    : "";
-
   return (
     <>
-      {/* Header bar */}
-      <div className="flex items-start justify-between gap-3 mb-4 sm:mb-6">
-        <div className="flex-1 min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-display font-semibold text-ink tracking-tight">
-            {ui.flightHubTitle}
-          </h1>
-          <p className="text-sm text-ink-light mt-0.5 font-body">
-            {ui.flightHubSubtitle}
-          </p>
-        </div>
-        <button
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          aria-label={ui.flightRefresh}
-          className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium
-            bg-white border border-border rounded-lg
-            text-ink-light hover:text-accent hover:border-accent/50
-            transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
-            shrink-0"
-        >
-          <svg
-            className={`w-4 h-4 ${isRefreshing ? "spin" : ""}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
-        </button>
-      </div>
-
-      {/* Filter pills + import toggle */}
+      {/* Top filter row — range pills + refresh + import toggle. Sits below the
+          global page header; intentionally non-sticky to avoid z-conflict. */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <div
           role="group"
@@ -481,6 +492,32 @@ export function FlightsView({ language }: { language: Language }) {
             </button>
           ))}
         </div>
+
+        <button
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          aria-label={ui.flightRefresh}
+          className="inline-flex items-center justify-center px-2.5 py-1.5 text-sm font-medium
+            bg-white border border-border rounded-lg
+            text-ink-light hover:text-accent hover:border-accent/50
+            transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
+            shrink-0"
+        >
+          <svg
+            className={`w-4 h-4 ${isRefreshing ? "spin" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
+          </svg>
+        </button>
 
         <button
           onClick={() => {
@@ -529,7 +566,7 @@ export function FlightsView({ language }: { language: Language }) {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium
                 bg-white border border-border rounded-lg
                 text-ink-light hover:text-accent hover:border-accent/50
-                transition-all duration-200"
+                transition-colors duration-200"
             >
               <svg
                 className="w-4 h-4"
@@ -552,7 +589,7 @@ export function FlightsView({ language }: { language: Language }) {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium
                 bg-white border border-border rounded-lg cursor-pointer
                 text-ink-light hover:text-accent hover:border-accent/50
-                transition-all duration-200"
+                transition-colors duration-200"
             >
               <svg
                 className="w-4 h-4"
@@ -591,9 +628,9 @@ export function FlightsView({ language }: { language: Language }) {
           <textarea
             value={importText}
             onChange={(e) => setImportText(e.target.value)}
-            placeholder={`flight_date,dep_airport,arr_airport,airline_code,flight_number
-2026-11-18,TPE,LAX,BR,16
-2026-11-19,LAX,TPE,BR,17`}
+            placeholder={`flight_date,dep_airport,arr_airport,airline_code,flight_number[,airline_name][,aircraft_type][,scheduled_dep][,scheduled_arr]
+2026-11-18,TPE,LAX,BR,16,Eva Air,B77W,2026-11-18T09:10,2026-11-18T10:20
+2026-11-19,LAX,TPE,BR,17,Eva Air,B77W,2026-11-19T13:00,2026-11-19T18:30`}
             rows={6}
             className="w-full text-xs font-mono p-3 bg-paper border border-border rounded-lg
               text-ink placeholder-ink-light/70
@@ -641,25 +678,28 @@ export function FlightsView({ language }: { language: Language }) {
         </div>
       )}
 
-      {/* Loading */}
+      {/* Loading — two-column skeleton */}
       {isLoading && (
-        <div className="flex flex-col gap-3">
-          {[...Array(4)].map((_, i) => (
-            <div
-              key={i}
-              className="bg-white rounded-xl border border-border overflow-hidden shadow-card"
-            >
-              <div className="p-4 sm:p-5 space-y-3">
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-24 skeleton rounded" />
-                  <div className="h-3 w-3 skeleton rounded-full" />
-                  <div className="h-3 w-16 skeleton rounded" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {[0, 1].map((col) => (
+            <div key={col} className="flex flex-col gap-1.5">
+              <div className="h-5 w-32 skeleton rounded mb-2" />
+              {[...Array(3)].map((_, i) => (
+                <div
+                  key={i}
+                  className="bg-white border border-border rounded-md px-3 py-2 space-y-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="h-2.5 w-2.5 skeleton rounded-full" />
+                    <div className="h-3 w-16 skeleton rounded" />
+                    <div className="h-2.5 w-10 skeleton rounded" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="h-3 w-24 skeleton rounded" />
+                    <div className="h-3 w-24 skeleton rounded" />
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="h-12 skeleton rounded-lg" />
-                  <div className="h-12 skeleton rounded-lg" />
-                </div>
-              </div>
+              ))}
             </div>
           ))}
         </div>
@@ -686,8 +726,8 @@ export function FlightsView({ language }: { language: Language }) {
         </div>
       )}
 
-      {/* Empty */}
-      {!isLoading && !error && groups.length === 0 && (
+      {/* Empty (no flights at all) */}
+      {!isLoading && !error && flights.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="w-16 h-16 rounded-full bg-ink/5 flex items-center justify-center mb-4">
             <svg className="w-8 h-8 text-ink-light" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -701,51 +741,100 @@ export function FlightsView({ language }: { language: Language }) {
         </div>
       )}
 
-      {/* Flight list grouped by date */}
-      {!isLoading && !error && groups.length > 0 && (
-        <div className="flex flex-col gap-6">
-          {groups.map(([date, list], gIdx) => (
-            <section key={date} className={gIdx < 4 ? `fade-in fade-in-delay-${Math.min(gIdx + 1, 6)}` : ""}>
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-light mb-2 font-display">
-                {fmtFlightDate(date, language)}
-              </h2>
-              <div className="flex flex-col gap-3">
-                {list.map((f) => (
-                  <FlightCard
-                    key={f.id}
-                    flight={f}
-                    language={language}
-                    onUpdate={() => openEdit(f)}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
+      {/* Two-column layout: 待出發 (left) + 已出發 (right). */}
+      {!isLoading && !error && flights.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <FlightColumn
+            title={ui.flightPendingDeparture}
+            count={leftFlights.length}
+            flights={leftFlights}
+            language={language}
+            onUpdate={openEdit}
+            emptyText={ui.flightEmptyDepartures}
+          />
+          <FlightColumn
+            title={ui.flightInTransit}
+            count={rightFlights.length}
+            flights={rightFlights}
+            language={language}
+            onUpdate={openEdit}
+            emptyText={ui.flightEmptyArrivals}
+          />
         </div>
       )}
 
       {/* Update modal */}
       {editing && (
         <UpdateModal
-          flightRef={flightRef}
+          flightRef={`${editing.airline_code}${editing.flight_number}`}
           light={flightTrafficLight(editing)}
           form={form}
           setForm={setForm}
           onSave={handleSave}
+          onArchive={handleArchive}
           onClose={closeEdit}
           onPreset={applyPreset}
           isSaving={isSaving}
           saveError={saveError}
           language={language}
+          canArchive={editing.status === "arrived"}
         />
       )}
     </>
   );
 }
 
-// ---------- Flight card ----------
+// ---------- Flight column (left or right) ----------
 
-function FlightCard({
+function FlightColumn({
+  title,
+  count,
+  flights,
+  language,
+  onUpdate,
+  emptyText,
+}: {
+  title: string;
+  count: number;
+  flights: Flight[];
+  language: Language;
+  onUpdate: (f: Flight) => void;
+  emptyText: string;
+}) {
+  return (
+    <section>
+      <header className="flex items-center gap-2 mb-2">
+        <h2 className="text-sm font-display font-semibold text-ink tracking-tight">
+          {title}
+        </h2>
+        <span className="inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 text-[11px] font-semibold rounded-full bg-ink/5 text-ink-light tabular-nums">
+          {count}
+        </span>
+      </header>
+      {flights.length === 0 ? (
+        <div className="text-xs text-ink-light/80 italic py-4 px-3 bg-white border border-border border-dashed rounded-md">
+          「{emptyText}」
+        </div>
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {flights.map((f) => (
+            <li key={f.id}>
+              <CompactFlightCard
+                flight={f}
+                language={language}
+                onUpdate={() => onUpdate(f)}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+// ---------- Compact flight card ----------
+
+function CompactFlightCard({
   flight,
   language,
   onUpdate,
@@ -755,170 +844,105 @@ function FlightCard({
   onUpdate: () => void;
 }) {
   const ui = getUIStrings(language);
-  const light: FlightTrafficLight = flightTrafficLight(flight);
-  const dotClass = flightTrafficLightClass(light);
+  const depLight: FlightTrafficLight = flightDepLight(flight);
+  const arrLight: FlightTrafficLight = flightArrLight(flight);
+  const depDotClass = flightTrafficLightClass(depLight);
+  const arrDotClass = flightTrafficLightClass(arrLight);
   const ref = `${flight.airline_code}${flight.flight_number}`;
 
-  // Status badge
-  const statusText =
-    flight.status === "departed"
-      ? ui.flightStatusDeparted
-      : flight.status === "arrived"
-      ? ui.flightStatusArrived
-      : flight.status === "cancelled"
-      ? ui.flightStatusCancelled
-      : ui.flightStatusScheduled;
-
-  const statusClass =
-    flight.status === "arrived"
-      ? "bg-emerald-100 text-emerald-700"
-      : flight.status === "departed"
-      ? "bg-amber-100 text-amber-700"
-      : flight.status === "cancelled"
-      ? "bg-ink/10 text-ink-light"
-      : "bg-aviation-topic/15 text-aviation-topic";
-
-  const highlightArrival = flight.status === "departed" || flight.status === "arrived";
-
-  // Delay line
-  const delayLine = (() => {
-    const d = flight.delay_minutes;
-    if (d === null || d === undefined) return null;
-    if (d === 0) return ui.flightDelayOnTime;
-    if (d > 0) return ui.flightDelayLate(d);
-    return ui.flightDelayEarly(Math.abs(d));
-  })();
-
   return (
-    <div className="relative bg-white rounded-xl border border-border shadow-card hover:shadow-card-hover hover:border-accent/40 transition-all duration-300">
-      {/* Traffic-light dot */}
-      <span
-        className={`absolute top-3 right-3 sm:top-4 sm:right-4 w-3 h-3 rounded-full ${dotClass} ring-2 ring-white shadow-sm`}
-        aria-hidden="true"
-      />
-
-      {/* Top row: airline + flight# + status */}
-      <div className="flex items-center gap-2 px-4 sm:px-5 pt-4 pb-2 pr-12">
-        <span className="font-display font-semibold text-ink text-base sm:text-lg tracking-tight">
+    <div className="group bg-white border border-border rounded-md px-3 py-1.5 transition-colors duration-200 hover:border-accent/40">
+      {flight.airline_name && (
+        <div className="text-[10px] leading-tight text-ink-light truncate mb-0.5">
+          {flight.airline_name}
+        </div>
+      )}
+      <div className="flex items-center gap-2 min-w-0">
+        {/* Left traffic-light dot — IMMEDIATELY left of the flight number */}
+        <span
+          className={`shrink-0 w-2.5 h-2.5 rounded-full ${depDotClass}`}
+          aria-hidden="true"
+        />
+        {/* Flight number (no space, bold) */}
+        <span className="shrink-0 font-display font-semibold text-sm text-ink tracking-tight leading-none">
           {ref}
         </span>
-        <span className="text-ink-light text-xs sm:text-sm">·</span>
-        <span className={`px-2 py-0.5 text-[10px] sm:text-xs font-semibold rounded-full uppercase tracking-wider ${statusClass}`}>
-          {statusText}
-        </span>
-      </div>
-
-      {/* Two panes */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 border-t border-border">
-        {/* Departure pane */}
-        <FlightPane
-          label={ui.flightLabelDeparture}
-          iata={flight.dep_airport}
-          scheduled={fmtClock(flight.scheduled_dep)}
-          scheduledLabel={ui.flightTimeScheduled}
-          actual={flight.actual_dep ? fmtClock(flight.actual_dep) : null}
-          actualLabel={ui.flightTimeActual}
-          highlighted={!highlightArrival}
-          emptyActual={ui.flightTimeActual}
-        />
-
-        {/* Arrival pane */}
-        <FlightPane
-          label={ui.flightLabelArrival}
-          iata={flight.arr_airport}
-          scheduled={fmtClock(flight.scheduled_arr)}
-          scheduledLabel={ui.flightTimeScheduled}
-          actual={flight.actual_arr ? fmtClock(flight.actual_arr) : null}
-          actualLabel={ui.flightTimeActual}
-          highlighted={highlightArrival}
-          emptyActual={ui.flightTimeActual}
-          delayLine={delayLine}
-        />
-      </div>
-
-      {/* Footer: update button */}
-      <div className="flex items-center justify-end px-4 sm:px-5 py-3 border-t border-border">
-        {flight.notes && (
-          <span className="mr-auto text-xs text-ink-light truncate max-w-[60%] pr-3" title={flight.notes}>
-            {flight.notes}
+        {/* Aircraft type — only if present, tiny grey */}
+        {flight.aircraft_type && (
+          <span className="shrink-0 text-[10px] text-ink-light/80 font-mono leading-none">
+            {flight.aircraft_type}
           </span>
         )}
+        <div className="flex-1 min-w-0" />
+        {/* Update button — small, opens the existing modal */}
         <button
           onClick={onUpdate}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium
-            bg-paper border border-border rounded-lg
+          className="shrink-0 inline-flex items-center px-2 py-0.5 text-[10px] font-medium
+            bg-paper border border-border rounded
             text-ink-light hover:text-accent hover:border-accent/50
-            transition-all duration-200"
+            transition-colors duration-200"
+          aria-label={ui.flightUpdateButton}
         >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
-          </svg>
-          <span>{ui.flightUpdateButton}</span>
+          {ui.flightUpdateButton}
         </button>
+        {/* Right traffic-light dot — far right, vertically centered */}
+        <span
+          className={`shrink-0 w-2.5 h-2.5 rounded-full ${arrDotClass}`}
+          aria-hidden="true"
+        />
+      </div>
+      {/* Thin second line: dep (left) + arr (right) airport/time */}
+      <div className="grid grid-cols-2 gap-3 mt-1">
+        <Stop
+          iata={flight.dep_airport}
+          scheduled={fmtClock(flight.scheduled_dep)}
+          actual={flight.actual_dep ? fmtClock(flight.actual_dep) : null}
+        />
+        <Stop
+          iata={flight.arr_airport}
+          scheduled={fmtClock(flight.scheduled_arr)}
+          actual={flight.actual_arr ? fmtClock(flight.actual_arr) : null}
+        />
       </div>
     </div>
   );
 }
 
-// ---------- Flight pane (one side of the card) ----------
+// ---------- Stop (one side of a flight card) ----------
 
-function FlightPane({
-  label,
+function Stop({
   iata,
   scheduled,
-  scheduledLabel,
   actual,
-  actualLabel,
-  emptyActual,
-  highlighted,
-  delayLine,
 }: {
-  label: string;
   iata: string;
   scheduled: string;
-  scheduledLabel: string;
   actual: string | null;
-  actualLabel: string;
-  emptyActual: string;
-  highlighted: boolean;
-  delayLine?: string | null;
 }) {
   return (
-    <div
-      className={`relative p-4 sm:p-5 flex flex-col gap-1.5 ${
-        highlighted ? "bg-paper" : "bg-white"
-      } sm:border-l sm:border-border first:sm:border-l-0`}
-    >
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[10px] sm:text-xs uppercase tracking-wider font-medium text-ink-light">
-          {label}
-        </span>
-        {delayLine && (
-          <span className="text-[11px] sm:text-xs font-medium text-ink-light">
-            {delayLine}
-          </span>
-        )}
-      </div>
-      <div className="font-display text-2xl sm:text-3xl font-semibold text-ink leading-none tracking-tight">
+    <div className="flex items-baseline gap-1.5 min-w-0 truncate">
+      <span className="font-display font-semibold text-sm text-ink shrink-0 leading-none">
         {iata}
-      </div>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs sm:text-sm">
-        <span className="text-ink-light">
-          <span className="opacity-60 mr-1">{scheduledLabel}</span>
-          <span className="font-mono text-ink">{scheduled || "—"}</span>
+      </span>
+      {actual && scheduled ? (
+        <>
+          <span className="text-[11px] font-mono text-ink-light leading-none">
+            {scheduled}
+          </span>
+          <span className="text-[10px] text-ink-light/60 leading-none">→</span>
+          <span className="text-xs font-mono font-semibold text-ink leading-none">
+            {actual}
+          </span>
+        </>
+      ) : actual ? (
+        <span className="text-xs font-mono font-semibold text-ink leading-none">
+          {actual}
         </span>
-        {actual && (
-          <span className="text-ink">
-            <span className="opacity-60 mr-1 text-ink-light">{actualLabel}</span>
-            <span className="font-mono">{actual}</span>
-          </span>
-        )}
-        {!actual && (
-          <span className="text-ink-light/60 text-xs">
-            <span className="opacity-60 mr-1">{emptyActual}</span>—
-          </span>
-        )}
-      </div>
+      ) : (
+        <span className="text-xs font-mono text-ink-light leading-none">
+          {scheduled || "—"}
+        </span>
+      )}
     </div>
   );
 }
@@ -931,22 +955,26 @@ function UpdateModal({
   form,
   setForm,
   onSave,
+  onArchive,
   onClose,
   onPreset,
   isSaving,
   saveError,
   language,
+  canArchive,
 }: {
   flightRef: string;
   light: FlightTrafficLight;
   form: UpdateForm;
   setForm: React.Dispatch<React.SetStateAction<UpdateForm>>;
   onSave: (e: FormEvent) => void;
+  onArchive: () => void;
   onClose: () => void;
   onPreset: (kind: "onTime" | "delay20" | "delay60" | "cancel") => void;
   isSaving: boolean;
   saveError: string | null;
   language: Language;
+  canArchive: boolean;
 }) {
   const ui = getUIStrings(language);
   const dotClass = flightTrafficLightClass(light);
@@ -1069,6 +1097,44 @@ function UpdateModal({
             </div>
           </div>
 
+          {/* Airline + Aircraft (new fields, optional) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-ink-light mb-1.5">
+                {language === "zh"
+                  ? "航空公司"
+                  : language === "es"
+                  ? "Aerolínea"
+                  : "Airline name"}
+              </label>
+              <input
+                type="text"
+                value={form.airline_name}
+                onChange={(e) => setForm((f) => ({ ...f, airline_name: e.target.value }))}
+                placeholder={language === "zh" ? "例如：長榮航空" : "e.g. EVA Air"}
+                className="w-full px-3 py-2 text-sm bg-white border border-border rounded-lg text-ink
+                  focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-all duration-200"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-ink-light mb-1.5">
+                {language === "zh"
+                  ? "機型"
+                  : language === "es"
+                  ? "Tipo de aeronave"
+                  : "Aircraft type"}
+              </label>
+              <input
+                type="text"
+                value={form.aircraft_type}
+                onChange={(e) => setForm((f) => ({ ...f, aircraft_type: e.target.value }))}
+                placeholder="e.g. B77W"
+                className="w-full px-3 py-2 text-sm bg-white border border-border rounded-lg text-ink font-mono
+                  focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-all duration-200"
+              />
+            </div>
+          </div>
+
           {/* Scheduled / Actual times */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -1138,6 +1204,44 @@ function UpdateModal({
           {/* Error */}
           {saveError && (
             <p className="text-sm text-rose-600">{saveError}</p>
+          )}
+
+          {/* Archive row — only for arrived flights */}
+          {canArchive && (
+            <div className="pt-2 border-t border-border flex items-center justify-between gap-3">
+              <p className="text-xs text-ink-light leading-snug">
+                {language === "zh"
+                  ? "已備份的航班不再顯示於此頁面（1 小時後將由排程自動備份）。"
+                  : language === "es"
+                  ? "Los vuelos archivados dejan de mostrarse aquí (se archivan automáticamente 1 h después de la llegada)."
+                  : "Archived flights are hidden here (auto-archived 1h after arrival)."}
+              </p>
+              <button
+                type="button"
+                onClick={onArchive}
+                disabled={isSaving}
+                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium
+                  bg-white border border-border rounded-lg
+                  text-ink-light hover:text-accent hover:border-accent/50
+                  transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                  />
+                </svg>
+                <span>{ui.flightArchiveToggle}</span>
+              </button>
+            </div>
           )}
 
           {/* Submit row */}
