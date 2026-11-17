@@ -989,7 +989,15 @@ function CompactFlightCard({
   // No fallback to scheduled_dep — if we don't know it departed, it stays left.
   const _departed = !!flight.actual_dep;
   const depLight: FlightTrafficLight = _departed ? flightArrLight(flight) : flightDepLight(flight);
-  const depDotClass = flightTrafficLightClass(depLight);
+  const cardBgClass = (() => {
+    switch (depLight) {
+      case "green": return "bg-green-100 border-green-300";
+      case "yellow": return "bg-yellow-100 border-yellow-300";
+      case "red": return "bg-red-100 border-red-300";
+      case "black": return "bg-gray-900 border-gray-700 [&_span]:!text-white [&_div]:!text-white";
+      default: return "bg-white border-border";
+    }
+  })();
   const ref = `${flight.airline_code}${flight.flight_number}`;
   // Airline display name — DB value preferred, IATA lookup as fallback so the
   // user always sees a real name (e.g. "Southwest Airlines") instead of just
@@ -1009,7 +1017,7 @@ function CompactFlightCard({
     language === "zh" ? "待抵達" : language === "es" ? "sin llegada" : "not arrived";
 
   return (
-    <div className="group bg-white border border-border rounded-md px-3 py-4 transition-colors duration-200 hover:border-accent/40">
+    <div className={`group border rounded-md px-3 py-4 transition-colors duration-200 hover:opacity-80 ${cardBgClass}`}>
       {/* Row 1: single dep traffic-light dot + meta line (date / flight# / airline [/ aircraft])
           + update button. ONE light per card. The meta line is wrapped in `truncate`
           so the entire `date / ref / airline / aircraft` ellipsizes from the right
@@ -1019,11 +1027,7 @@ function CompactFlightCard({
           flight# uses font-body + font-semibold (bold); airline + aircraft use font-body
           at normal weight, lighter color. */}
       <div className="flex items-center gap-2 min-w-0">
-        {/* Dep traffic-light dot — single status indicator, leftmost. */}
-        <span
-          className={`shrink-0 inline-flex w-3 h-3 rounded-full ${depDotClass}`}
-          aria-hidden="true"
-        />
+
         {/* Meta line — date / flight# / airline [/ aircraft_type]. One line, truncated. */}
         <div className="flex-1 min-w-0 truncate text-sm leading-tight">
           {/* Date — display font, normal weight. Localized via ui.flightDateLabel
