@@ -6,25 +6,25 @@ export const runtime = "nodejs";
 /**
  * POST /api/flights/import
  *   body { text: "..." }   -- one flight per line, CSV columns:
- *     flight_date,dep_airport,arr_airport,airline_code,flight_number[,scheduled_dep][,scheduled_arr]
- *   - Exactly 5 (required only) or 7 (with optional scheduled times) columns per line.
+ *     3 cols (minimum) : flight_date,airline_code,flight_number
+ *     5 cols           : + dep_airport,arr_airport
+ *     7 cols           : + scheduled_dep,scheduled_arr
+ *   - dep_airport / arr_airport / scheduled_dep / scheduled_arr are all OPTIONAL.
  *   - scheduled_dep / scheduled_arr are optional ISO 8601 strings (e.g.
- *     2026-11-17T08:30:00Z or 2026-11-17 08:30). Invalid dates are coerced to null.
+ *     2026-11-17T08:30:00Z or 2026-11-17 08:30). Invalid dates → null.
  *   - airline_name / aircraft_type are NOT settable via CSV — use the in-app
- *     "Update" modal after import to fill those display fields.
+ *     "Update" modal after import, or use OpenCode/local server to enrich.
  *   - duplicates upsert on (flight_date, dep, arr, airline, flight#)
  */
 function parseLine(line: string) {
-  // No `.filter(Boolean)` here — empty trailing fields (e.g. the `,,` at the
-  // end of a 7-col row with both optional times left blank) must still count
-  // toward the column count, otherwise a row with one blank optional would
-  // collapse to 6 parts and be wrongly rejected.
+  // No `.filter(Boolean)` here — empty trailing fields must still count toward
+  // the column count, otherwise rows with blank optionals collapse wrongly.
   const parts = line.split(",").map((s) => s.trim());
-  if (parts.length !== 5 && parts.length !== 7) return null;
+  if (parts.length !== 3 && parts.length !== 5 && parts.length !== 7) return null;
   const [
     flight_date,
-    dep_airport,
-    arr_airport,
+    dep_or_empty,
+    arr_or_empty,
     airline_code,
     flight_number,
     scheduled_dep,
@@ -32,8 +32,6 @@ function parseLine(line: string) {
   ] = parts;
   if (
     !flight_date ||
-    !dep_airport ||
-    !arr_airport ||
     !airline_code ||
     !flight_number
   ) {
@@ -69,8 +67,8 @@ function parseLine(line: string) {
 
   return {
     flight_date: isoDate,
-    dep_airport: dep_airport.toUpperCase(),
-    arr_airport: arr_airport.toUpperCase(),
+    dep_airport: (dep_or_empty || "").toUpperCase(),
+    arr_airport: (arr_or_empty || "").toUpperCase(),
     airline_code: airline_code.toUpperCase(),
     flight_number: flight_number.toUpperCase(),
     scheduled_dep: parseOptionalIso(scheduled_dep),
@@ -99,7 +97,11 @@ export async function POST(req: Request) {
   const skipped = lines.length - flights.length;
   if (!flights.length) {
     return NextResponse.json(
-      { error: "no valid rows", skipped, hint: "每行格式: flight_date(YYYY-MM-DD),dep_airport,arr_airport,airline_code,flight_number[,scheduled_dep][,scheduled_arr]" },
+      {
+        error: "no valid rows",
+        skipped,
+        hint: "每行 3/5/7 欄皆可。必填: flight_date(YYYY-MM-DD),airline_code,flight_number。可選: dep_airport,arr_airport,scheduled_dep,scheduled_arr。",
+      },
       { status: 400 }
     );
   }
