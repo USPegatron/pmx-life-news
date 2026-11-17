@@ -1147,9 +1147,9 @@ function CompactFlightCard({
           the localised `notYetLabel`; when actual === scheduled it shows
           the localised `onTimeLabel`. The existing 更新 button above is
           the single entry point for editing both times. */}
-      <div className="flex items-baseline gap-x-2 sm:gap-x-4 mt-2 min-w-0">
-        {/* Dep side: IATA · scheduled → actual. */}
-        <div className="flex items-baseline gap-x-1.5 min-w-0 shrink-0">
+      <div className="grid grid-cols-2 mt-2 min-w-0">
+        {/* Dep side: centered in left half */}
+        <div className="flex items-baseline justify-center gap-x-1.5 min-w-0 overflow-hidden">
           <span className="text-sm font-semibold tracking-wide text-ink uppercase shrink-0 leading-none">
             {flight.dep_airport}
           </span>
@@ -1173,10 +1173,8 @@ function CompactFlightCard({
             language={language}
           />
         </div>
-        {/* Spacer — pushes the arr side to the right edge of the card. */}
-        <div className="flex-1 min-w-[1rem]" aria-hidden="true" />
-        {/* Arr side: IATA · date · scheduled → actual. */}
-        <div className="flex items-baseline gap-x-1.5 min-w-0 shrink-0">
+        {/* Arr side: centered in right half + status icon */}
+        <div className="flex items-baseline justify-center gap-x-1.5 min-w-0 overflow-hidden">
           <span className="text-sm font-semibold tracking-wide text-ink uppercase shrink-0 leading-none">
             {flight.arr_airport}
           </span>
@@ -1199,6 +1197,16 @@ function CompactFlightCard({
             notYetLabel={notYetArrLabel}
             language={language}
           />
+          {/* Status icon: ✈️ in transit / 🏢 landed */}
+          {flight.actual_arr ? (
+            <span className="text-xs shrink-0 leading-none" title={language === "zh" ? "已降落" : "Landed"}>
+              🏢
+            </span>
+          ) : now >= depMs ? (
+            <span className="text-xs shrink-0 leading-none" title={language === "zh" ? "飛行中" : "In transit"}>
+              ✈️
+            </span>
+          ) : null}
         </div>
       </div>
     </div>
