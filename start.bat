@@ -11,21 +11,27 @@ cls
 echo ================================================================
 echo   Border ^& Flight News Hub - Local Launcher
 echo ================================================================
-echo   1) Run crawler once   (fetch -^> DeepL translate -^> Supabase)
-echo   2) Crawler dry-run    (no DB / DeepL writes, prints plan)
-echo   3) Start webui dev    (http://localhost:3000)
-echo   4) Build webui        (production build test)
-echo   5) Open app / log folders
-echo   6) Exit
+echo   1) Run crawler once          (fetch -^> DeepL translate -^> Supabase)
+echo   2) Crawler dry-run           (no DB / DeepL writes, prints plan)
+echo   3) Start webui dev           (http://localhost:3000)
+echo   4) Build webui               (production build test)
+echo   5) Flight parser: parse + upload .msg folder
+echo   6) Flight parser: server     (http://127.0.0.1:8765)
+echo   7) Flight parser: daily backfill (180d via mailbox)
+echo   8) Open app / log folders
+echo   9) Exit
 echo ================================================================
-set /p "c=Choose [1-6]: "
+set /p "c=Choose [1-9]: "
 
 if "%c%"=="1" goto CRAWL
 if "%c%"=="2" goto DRYRUN
 if "%c%"=="3" goto DEV
 if "%c%"=="4" goto BUILD
-if "%c%"=="5" goto OPEN
-if "%c%"=="6" goto END
+if "%c%"=="5" goto FPARSE
+if "%c%"=="6" goto FSERVER
+if "%c%"=="7" goto FBACKFILL
+if "%c%"=="8" goto OPEN
+if "%c%"=="9" goto END
 goto MENU
 
 :CRAWL
@@ -105,6 +111,40 @@ goto MENU
 :OPEN
 start "" "%ROOT%app"
 start "" "%ROOT%log"
+goto MENU
+
+:FPARSE
+echo [*] Flight parser: parse default .msg folder, append cumulative CSV, upload Supabase
+%PY% "%ROOT%app\flight_parser\parse_and_upload.py" --skip-legacy
+echo.
+pause
+goto MENU
+
+:FSERVER
+echo [*] Starting flight parser server at http://127.0.0.1:8765  (Ctrl+C to stop)
+pushd "%ROOT%"
+%PY% -m uvicorn app.flight_parser.server:app --host 127.0.0.1 --port 8765
+popd
+echo.
+pause
+goto MENU
+
+:FBACKFILL
+echo [*] Flight parser: one-time backfill via mailbox (180 days)
+echo     Requires the server running and MAILBOX_* configured in app\crawler\.env
+echo.
+set /p "skip=Start server if not running? (y/N) "
+if /I "%skip%"=="Y" goto FBACKFILL_SRV
+curl -s -X POST -H "Content-Type: application/json" -d "{\"days\":180}" http://127.0.0.1:8765/api/backfill
+echo.
+pause
+goto MENU
+:FBACKFILL_SRV
+start "PMX Flight Parser Server" cmd /k "%PY% -m uvicorn app.flight_parser.server:app --host 127.0.0.1 --port 8765"
+ping 127.0.0.1 -n 4 >nul
+curl -s -X POST -H "Content-Type: application/json" -d "{\"days\":180}" http://127.0.0.1:8765/api/backfill
+echo.
+pause
 goto MENU
 
 :END

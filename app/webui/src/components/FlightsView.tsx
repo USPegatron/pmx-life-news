@@ -1126,10 +1126,11 @@ function CompactFlightCard({
             </span>
           )}
         </div>
-        {/* Status icon: 🏢 landed (flashing) / ✈️ in transit — aligned right with 更新 */}
+        {/* Status icon: 🏢+green light landed / ✈️ in transit — aligned right with 更新 */}
         {flight.actual_arr && new Date(flight.actual_arr).getTime() <= now ? (
-          <span className="text-lg leading-none animate-pulse shrink-0" title={language === "zh" ? "已降落" : "Landed"}>
-            🏢
+          <span className="flex items-center gap-1 shrink-0" title={language === "zh" ? "已降落" : "Landed"}>
+            <span className="w-3 h-3 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_3px_rgba(34,197,94,0.7)]" />
+            <span className="text-lg leading-none">🏢</span>
           </span>
         ) : flight.actual_dep ? (
           <span className="text-lg leading-none shrink-0" title={language === "zh" ? "飛行中" : "In transit"}>
