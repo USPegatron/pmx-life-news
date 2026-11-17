@@ -258,10 +258,10 @@ export function FlightsView({ language }: { language: Language }) {
     // parser can ingest it as-is — the parser drops the header because
     // `flight_date` fails the YYYY-MM-DD regex.
     const csv =
-      "flight_date,dep_airport,arr_airport,airline_code,flight_number,scheduled_dep,scheduled_arr\n" +
-      "2026-11-20,TPE,LAX,AA,1234,2026-11-20T08:30:00Z,2026-11-20T15:00:00Z\n" +
-      "2026-11-21,ELP,IAH,UA,4521,2026-11-21T06:15:00,2026-11-21T09:30:00\n" +
-      "2026-11-22,LAX,TPE,AA,1235,2026-11-22T11:00:00,2026-11-22T17:30:00\n";
+      "flight_date,dep_airport,arr_airport,airline_code,flight_number\n" +
+      "2026-11-20,TPE,LAX,AA,1234\n" +
+      "2026-11-21,ELP,IAH,UA,4521\n" +
+      "2026-11-22,LAX,TPE,AA,1235\n";
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -591,9 +591,9 @@ export function FlightsView({ language }: { language: Language }) {
           <textarea
             value={importText}
             onChange={(e) => setImportText(e.target.value)}
-            placeholder={`flight_date,dep_airport,arr_airport,airline_code,flight_number[,scheduled_dep][,scheduled_arr]
+            placeholder={`flight_date,dep_airport,arr_airport,airline_code,flight_number
 2026-11-18,TPE,LAX,BR,16
-2026-11-19,LAX,TPE,BR,17,2026-11-19T00:30,2026-11-20T06:00`}
+2026-11-19,LAX,TPE,BR,17`}
             rows={6}
             className="w-full text-xs font-mono p-3 bg-paper border border-border rounded-lg
               text-ink placeholder-ink-light/70
