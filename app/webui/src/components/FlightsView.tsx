@@ -1253,12 +1253,12 @@ function ActualTime({
     );
   }
   const actualDisplay = fmtClock(actualIso, airportCode);
-  // Compute delay in minutes
+  // Compute delay in minutes — "準點" only when EXACTLY equal (0 diff)
   let label = onTimeLabel(language);
   if (scheduledIso) {
     const diffMs = new Date(actualIso).getTime() - new Date(scheduledIso).getTime();
     const diffMin = Math.round(diffMs / 60_000);
-    if (Math.abs(diffMin) > 15) {
+    if (diffMin !== 0) {
       label = formatDelayMinutes(diffMin, language);
     }
   }
