@@ -727,7 +727,7 @@ function NewsRow({
 
         {/* "Not a news photo" badge — only when showing a fallback landscape */}
         {showFallback && !imageError && (
-          <span className="absolute top-2 right-2 sm:top-3 sm:right-3 px-2 py-0.5 text-[10px] sm:text-xs font-medium rounded bg-black/60 text-white pointer-events-none">
+          <span className="absolute bottom-2 right-2 sm:top-3 sm:bottom-auto sm:right-3 px-2 py-0.5 text-[10px] sm:text-xs font-medium rounded bg-black/60 text-white pointer-events-none">
             {ui.notNewsPhotoLabel}
           </span>
         )}
@@ -1189,7 +1189,7 @@ function ImageCarousel({
   return (
     <div className="relative bg-black/5 flex-shrink-0 sm:h-full sm:overflow-hidden">
       {notNewsPhotoLabel && (
-        <span className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10 px-2 py-0.5 text-[10px] sm:text-xs font-medium rounded bg-black/60 text-white pointer-events-none">
+        <span className="absolute bottom-2 right-2 sm:top-3 sm:bottom-auto sm:right-3 z-10 px-2 py-0.5 text-[10px] sm:text-xs font-medium rounded bg-black/60 text-white pointer-events-none">
           {notNewsPhotoLabel}
         </span>
       )}
