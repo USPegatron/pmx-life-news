@@ -24,7 +24,6 @@ function parseLine(line: string) {
   ] = parts;
   if (
     !flight_date ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(flight_date) ||
     !dep_airport ||
     !arr_airport ||
     !airline_code ||
@@ -32,8 +31,25 @@ function parseLine(line: string) {
   ) {
     return null;
   }
+
+  // Accept YYYY-MM-DD (ISO) or M/D/YYYY (US) — normalise to ISO.
+  const isoDate = (() => {
+    const s = flight_date.trim();
+    if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(s)) {
+      const [y, m, d] = s.split("-");
+      return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+    }
+    const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) {
+      const [, mo, d, y] = m;
+      return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
+    }
+    return null;
+  })();
+  if (!isoDate) return null;
+
   return {
-    flight_date,
+    flight_date: isoDate,
     dep_airport: dep_airport.toUpperCase(),
     arr_airport: arr_airport.toUpperCase(),
     airline_code: airline_code.toUpperCase(),
