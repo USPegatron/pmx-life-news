@@ -608,9 +608,8 @@ export function FlightsView({ language }: { language: Language }) {
 
   return (
     <>
-      {/* Top filter row — range pills + refresh + import toggle. Sits below the
-          global page header; intentionally non-sticky to avoid z-conflict. */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
+      {/* Top filter row — sticky below global page header. Compact. */}
+      <div className="sticky top-[79px] sm:top-[49px] z-40 bg-paper/95 backdrop-blur-sm border-b border-border px-3 sm:px-6 py-1.5 mb-2 flex flex-wrap items-center gap-2">
         <div
           role="group"
           aria-label="flight range"
@@ -1022,7 +1021,7 @@ function FlightColumn({
 }) {
   return (
     <section>
-      <header className="flex items-center gap-2 mb-2">
+      <header className="sticky top-[116px] sm:top-[85px] z-30 bg-paper/95 backdrop-blur-sm flex items-center gap-2 mb-1.5">
         <h2 className="text-sm font-display font-semibold text-ink tracking-tight">
           {title}
         </h2>
