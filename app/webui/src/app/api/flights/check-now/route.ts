@@ -46,6 +46,11 @@ type Flight = {
   dep_airport: string;
   arr_airport: string;
   aircraft_type: string | null;
+  status: string | null;
+  scheduled_dep: string | null;
+  scheduled_arr: string | null;
+  actual_dep: string | null;
+  actual_arr: string | null;
 };
 
 type StateVector = { icao24: string; callsign: string; onGround: boolean };
@@ -91,25 +96,12 @@ function inferStatus(
   return "scheduled";
 }
 
-export async function POST(req: Request) {
+async function runCheck(maxFlights: number) {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey) {
     return NextResponse.json({ ok: false, error: "server not configured" }, { status: 500 });
   }
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey);
-
-  // Optional: allow caller to cap how many flights to process this call.
-  // Default is small to stay under Vercel Hobby's 10s function limit;
-  // callers can pass higher `max` (up to 50) on Pro plans.
-  let maxFlights = 2;
-  try {
-    const body = (await req.json().catch(() => ({}))) as { max?: number };
-    if (typeof body.max === "number" && body.max > 0 && body.max <= 50) {
-      maxFlights = Math.floor(body.max);
-    }
-  } catch {
-    /* ignore */
-  }
 
   const stats = { checked: 0, updated: 0, archived: 0, errors: 0 };
   const nowIso = new Date().toISOString();
@@ -201,6 +193,15 @@ export async function POST(req: Request) {
       last_checked_at: nowIso,
       updated_by: "ai",
     };
+
+    // State-machine: stamp actual times on first detection of transition
+    const prevStatus = (flight as any).status as string | undefined;
+    if (status === "departed" && prevStatus === "scheduled" && !flight.actual_dep) {
+      update.actual_dep = nowIso;
+    }
+    if (status === "arrived" && !flight.actual_arr) {
+      update.actual_arr = nowIso;
+    }
     if (status !== "scheduled") update.status = status;
     if (aircraft_type && aircraft_type !== flight.aircraft_type) update.aircraft_type = aircraft_type;
 
@@ -216,4 +217,22 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({ ok: true, ...stats });
+}
+
+// Vercel Cron sends GET; the "更新全部" button sends POST with optional {max}
+export async function GET() {
+  return runCheck(2);
+}
+
+export async function POST(req: Request) {
+  let maxFlights = 2;
+  try {
+    const body = (await req.json().catch(() => ({}))) as { max?: number };
+    if (typeof body.max === "number" && body.max > 0 && body.max <= 50) {
+      maxFlights = Math.floor(body.max);
+    }
+  } catch {
+    /* ignore */
+  }
+  return runCheck(maxFlights);
 }
