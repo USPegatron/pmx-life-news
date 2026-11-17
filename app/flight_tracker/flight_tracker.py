@@ -86,6 +86,7 @@ def fetch_flights_to_check() -> list[dict]:
     params = {
         "or": "(status.eq.scheduled,status.eq.departed)",
         "flight_date": f"lte.{horizon}",
+        "archived_at": "is.null",
         "order": "flight_date.asc,scheduled_dep.asc",
         "limit": 100,
     }
@@ -98,6 +99,34 @@ def fetch_flights_to_check() -> list[dict]:
         for f in rows
         if not f.get("last_checked_at") or f["last_checked_at"] < cooldown_cutoff
     ]
+
+
+def archive_old_arrivals() -> int:
+    """Stamp archived_at on flights that arrived more than 1 hour ago.
+
+    Run at the start of every cycle so the active view stays clean.
+    """
+    url = f"{SUPABASE_URL}/rest/v1/flights_to_track"
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    params = {
+        "status": "eq.arrived",
+        "actual_arr": f"lt.{cutoff}",
+        "archived_at": "is.null",
+        "select": "id,actual_arr",
+        "limit": 100,
+    }
+    r = requests.get(url, headers=_sb_headers(), params=params, timeout=30)
+    r.raise_for_status()
+    rows = r.json() or []
+    for row in rows:
+        requests.patch(
+            url,
+            headers=_sb_headers({"Prefer": "return=minimal"}),
+            params={"id": f"eq.{row['id']}"},
+            json={"archived_at": datetime.now(timezone.utc).isoformat()},
+            timeout=30,
+        ).raise_for_status()
+    return len(rows)
 
 
 def patch_flight(flight_id: str, updates: dict) -> None:
@@ -173,6 +202,21 @@ def process_one(flight: dict, log) -> None:
         suffix = f" (src: {src})" if src else ""
         update["notes"] = (notes[:480] + suffix)[:500]
 
+    # Auto-compute departure_delay_minutes when both scheduled_dep and actual_dep now present.
+    sched_dep = update.get("scheduled_dep") or flight.get("scheduled_dep")
+    act_dep = update.get("actual_dep") or flight.get("actual_dep")
+    if sched_dep and act_dep and status != "cancelled":
+        try:
+            update["departure_delay_minutes"] = int(
+                round(
+                    (datetime.fromisoformat(act_dep.replace("Z", "+00:00"))
+                     - datetime.fromisoformat(sched_dep.replace("Z", "+00:00"))
+                    ).total_seconds() / 60
+                )
+            )
+        except (ValueError, AttributeError):
+            pass
+
     patch_flight(flight_id, update)
     log(
         f"    -> status={update.get('status', flight.get('status'))} "
@@ -212,6 +256,14 @@ def main() -> int:
 
     while True:
         try:
+            # Auto-archive flights that arrived more than 1 hour ago.
+            try:
+                archived = archive_old_arrivals()
+                if archived:
+                    log(f"auto-archived {archived} arrival(s) older than 1h")
+            except Exception as exc:
+                log(f"!! archive step error: {exc}")
+
             flights = fetch_flights_to_check()
             if args.max:
                 flights = flights[: args.max]

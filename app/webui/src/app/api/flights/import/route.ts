@@ -6,8 +6,10 @@ export const runtime = "nodejs";
 /**
  * POST /api/flights/import
  *   body { text: "..." }   -- one flight per line, CSV columns:
- *     flight_date,dep_airport,arr_airport,airline_code,flight_number[,scheduled_dep][,scheduled_arr]
- *   - scheduled_dep / scheduled_arr are optional ISO strings (e.g. 2026-11-18T08:30:00Z or 2026-11-18 08:30)
+ *     flight_date,dep_airport,arr_airport,airline_code,flight_number
+ *       [,airline_name][,aircraft_type][,scheduled_dep][,scheduled_arr]
+ *   - airline_name / aircraft_type are optional display fields.
+ *   - scheduled_dep / scheduled_arr are optional ISO strings.
  *   - duplicates upsert on (flight_date, dep, arr, airline, flight#)
  */
 function parseLine(line: string) {
@@ -19,6 +21,8 @@ function parseLine(line: string) {
     arr_airport,
     airline_code,
     flight_number,
+    airline_name,
+    aircraft_type,
     scheduled_dep,
     scheduled_arr,
   ] = parts;
@@ -54,6 +58,8 @@ function parseLine(line: string) {
     arr_airport: arr_airport.toUpperCase(),
     airline_code: airline_code.toUpperCase(),
     flight_number: flight_number.toUpperCase(),
+    airline_name: airline_name || null,
+    aircraft_type: aircraft_type || null,
     scheduled_dep: scheduled_dep ? new Date(scheduled_dep).toISOString() : null,
     scheduled_arr: scheduled_arr ? new Date(scheduled_arr).toISOString() : null,
     status: "scheduled" as const,

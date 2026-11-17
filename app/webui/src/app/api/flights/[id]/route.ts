@@ -5,9 +5,15 @@ export const runtime = "nodejs";
 
 /**
  * PATCH /api/flights/[id]
- *   body: any subset of { status, actual_dep, actual_arr, scheduled_dep, scheduled_arr, notes, updated_by }
- *   - delay_minutes is computed automatically when both scheduled_arr and actual_arr are present.
- *   - For 'cancelled' status, delay_minutes is reset to null.
+ *   body: any subset of {
+ *     status, actual_dep, actual_arr, scheduled_dep, scheduled_arr,
+ *     notes, updated_by, airline_name, aircraft_type,
+ *     archived: true|false
+ *   }
+ *   - delay_minutes is computed automatically when scheduled_arr and actual_arr are both present.
+ *   - departure_delay_minutes is computed automatically when scheduled_dep and actual_dep are both present.
+ *   - For 'cancelled' status, both delay_minutes and departure_delay_minutes are reset to null.
+ *   - { archived: true } stamps archived_at to now; { archived: false } clears it.
  */
 export async function PATCH(
   req: Request,
@@ -44,14 +50,34 @@ export async function PATCH(
   }
 
   // Recompute delay_minutes from actual_arr vs scheduled_arr if either was just sent.
-  const scheduled = (update.scheduled_arr ?? null) as string | null;
-  const actual = (update.actual_arr ?? null) as string | null;
+  const scheduledArr = (update.scheduled_arr ?? null) as string | null;
+  const actualArr = (update.actual_arr ?? null) as string | null;
+  const scheduledDep = (update.scheduled_dep ?? null) as string | null;
+  const actualDep = (update.actual_dep ?? null) as string | null;
+
   if (update.status === "cancelled") {
     update.delay_minutes = null;
-  } else if (scheduled && actual) {
-    update.delay_minutes = Math.round(
-      (new Date(actual).getTime() - new Date(scheduled).getTime()) / 60000
-    );
+    update.departure_delay_minutes = null;
+  } else {
+    if (scheduledArr && actualArr) {
+      update.delay_minutes = Math.round(
+        (new Date(actualArr).getTime() - new Date(scheduledArr).getTime()) / 60000
+      );
+    }
+    if (scheduledDep && actualDep) {
+      update.departure_delay_minutes = Math.round(
+        (new Date(actualDep).getTime() - new Date(scheduledDep).getTime()) / 60000
+      );
+    }
+  }
+
+  // Manual archive toggle: { archived: true } → stamp archived_at; { archived: false } → clear.
+  if (update.archived === true) {
+    update.archived_at = new Date().toISOString();
+    delete update.archived;
+  } else if (update.archived === false) {
+    update.archived_at = null;
+    delete update.archived;
   }
 
   const { data, error } = await supabase

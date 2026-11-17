@@ -4,7 +4,10 @@ import { createClient } from "@supabase/supabase-js";
 export const runtime = "nodejs";
 
 /**
- * GET /api/flights?date=YYYY-MM-DD&from=YYYY-MM-DD&to=YYYY-MM-DD&limit=N
+ * GET /api/flights
+ *   ?date=YYYY-MM-DD&from=YYYY-MM-DD&to=YYYY-MM-DD
+ *   &archived=false|true|all  (default false)
+ *   &limit=N
  *   Reads with the anon key (public read).
  * POST /api/flights — body { ...flight }  -> insert one (service_role)
  */
@@ -13,7 +16,8 @@ export async function GET(req: Request) {
   const date = searchParams.get("date");
   const from = searchParams.get("from");
   const to = searchParams.get("to");
-  const limit = Math.min(parseInt(searchParams.get("limit") || "100", 10), 500);
+  const archived = searchParams.get("archived") ?? "false";
+  const limit = Math.min(parseInt(searchParams.get("limit") || "200", 10), 500);
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,6 +34,14 @@ export async function GET(req: Request) {
   if (date) query = query.eq("flight_date", date);
   if (from) query = query.gte("flight_date", from);
   if (to) query = query.lte("flight_date", to);
+
+  // Default: exclude archived flights (archived_at IS NULL).
+  if (archived === "false") {
+    query = query.is("archived_at", null);
+  } else if (archived === "true") {
+    query = query.not("archived_at", "is", null);
+  }
+  // "all" → no extra filter.
 
   const { data, error } = await query;
   if (error) {
