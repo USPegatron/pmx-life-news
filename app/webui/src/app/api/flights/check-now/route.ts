@@ -57,7 +57,7 @@ async function fetchStatesBbox(
   lomax: number,
 ): Promise<StateVector[]> {
   const url = `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`;
-  const r = await fetch(url, { signal: AbortSignal.timeout(15000) });
+  const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
   if (!r.ok) throw new Error(`OpenSky HTTP ${r.status}`);
   const data = await r.json();
   return (data?.states || []).map((s: unknown[]) => ({
@@ -70,7 +70,7 @@ async function fetchStatesBbox(
 async function fetchAircraftTypecode(icao24: string): Promise<string | null> {
   try {
     const r = await fetch(`https://opensky-network.org/api/metadata/aircraft/icao24/${icao24}`, {
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(8000),
     });
     if (!r.ok) return null;
     const data = await r.json();
@@ -99,7 +99,9 @@ export async function POST(req: Request) {
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey);
 
   // Optional: allow caller to cap how many flights to process this call.
-  let maxFlights = 10;
+  // Default is small to stay under Vercel Hobby's 10s function limit;
+  // callers can pass higher `max` (up to 50) on Pro plans.
+  let maxFlights = 2;
   try {
     const body = (await req.json().catch(() => ({}))) as { max?: number };
     if (typeof body.max === "number" && body.max > 0 && body.max <= 50) {
