@@ -649,16 +649,14 @@ function delayToLight(delayMinutes: number): FlightTrafficLight {
  */
 export function flightDepLight(flight: Flight): FlightTrafficLight {
   if (flight.status === "cancelled") return "black";
-  const now = Date.now();
-  const depRef = flight.actual_dep ?? flight.scheduled_dep;
-  if (!depRef) return "hollow";
-  if (now < new Date(depRef).getTime()) return "hollow"; // not yet departed
-  // Compute departure delay (actual vs scheduled; 0 if no actual yet)
+  // Not yet departed (no actual_dep confirmed) → hollow
+  if (!flight.actual_dep) return "hollow";
+  // Departed: compute delay vs scheduled
   if (flight.actual_dep && flight.scheduled_dep) {
     const d = (new Date(flight.actual_dep).getTime() - new Date(flight.scheduled_dep).getTime()) / 60_000;
     return delayToLight(d);
   }
-  return "green"; // no actual yet → assume on-time
+  return "green"; // departed but no scheduled to compare
 }
 
 /**

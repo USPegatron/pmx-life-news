@@ -570,15 +570,13 @@ export function FlightsView({ language }: { language: Language }) {
   const { leftFlights, rightFlights } = useMemo(() => {
     const left: Flight[] = [];
     const right: Flight[] = [];
-    const now = Date.now();
     for (const f of flights) {
       if (f.status === "cancelled") {
         if (f.actual_arr) right.push(f);
         else left.push(f);
       } else {
-        // Go right once the scheduled departure time has passed (or actual_dep is set).
-        const depRef = f.actual_dep ?? f.scheduled_dep;
-        if (depRef && new Date(depRef).getTime() <= now) {
+        // Go right ONLY when actual_dep is confirmed (flight actually departed).
+        if (f.actual_dep) {
           right.push(f);
         } else {
           left.push(f);
@@ -1052,10 +1050,9 @@ function CompactFlightCard({
 }) {
   const ui = getUIStrings(language);
   // Pick the right light: departure logic (left column) vs arrival logic (right column).
-  // A flight is "departed" when actual_dep is set OR now >= scheduled_dep.
-  const _now = Date.now();
-  const _depRef = flight.actual_dep ?? flight.scheduled_dep;
-  const _departed = !!(_depRef && new Date(_depRef).getTime() <= _now);
+  // A flight is "departed" ONLY when actual_dep is set (real departure confirmed).
+  // No fallback to scheduled_dep — if we don't know it departed, it stays left.
+  const _departed = !!flight.actual_dep;
   const depLight: FlightTrafficLight = _departed ? flightArrLight(flight) : flightDepLight(flight);
   const depDotClass = flightTrafficLightClass(depLight);
   const ref = `${flight.airline_code}${flight.flight_number}`;
@@ -1068,11 +1065,7 @@ function CompactFlightCard({
   // Localised "not yet" labels — inlined here because utils.ts is shared with
   // the rest of the app and we want these strings to ship alongside the card
   // redesign. Trilingual to match the rest of the UI.
-  // Localised status labels — time-based so the card reflects flight state
-  // even without OpenSky/manual actual_dep or actual_arr data.
   const now = Date.now();
-  const depMs = flight.scheduled_dep ? new Date(flight.scheduled_dep).getTime() : Infinity;
-  const arrMs = flight.scheduled_arr ? new Date(flight.scheduled_arr).getTime() : Infinity;
   // Labels shown only when actual time is not yet available.
   // "已起飛"/"飛行中"/"已抵達" removed — column position already conveys that.
   const notYetDepLabel =
@@ -1194,12 +1187,12 @@ function CompactFlightCard({
               notYetLabel={notYetArrLabel}
               language={language}
             />
-            {/* Status icon: 🏢 landed (actual_arr <= now) / ✈️ in transit */}
+            {/* Status icon: 🏢 landed (actual_arr <= now) / ✈️ in transit (actual_dep set) */}
             {flight.actual_arr && new Date(flight.actual_arr).getTime() <= now ? (
               <span className="text-xs leading-none" title={language === "zh" ? "已降落" : "Landed"}>
                 🏢
               </span>
-            ) : now >= depMs ? (
+            ) : flight.actual_dep ? (
               <span className="text-xs leading-none" title={language === "zh" ? "飛行中" : "In transit"}>
                 ✈️
               </span>
