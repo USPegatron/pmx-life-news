@@ -758,7 +758,7 @@ export function FlightsView({ language }: { language: Language }) {
               {[...Array(3)].map((_, i) => (
                 <div
                   key={i}
-                  className="bg-white border border-border rounded-md px-3 py-2 space-y-1.5"
+                  className="bg-white border border-border rounded-md px-3 py-4 space-y-2"
                 >
                   {/* Row 1 (skeleton): one light + 4 segments separated by `/` + update button.
                       Mirrors the real row 1 layout (single light, single-line meta). */}
@@ -775,17 +775,28 @@ export function FlightsView({ language }: { language: Language }) {
                     </div>
                     <div className="h-3 w-8 skeleton rounded shrink-0" />
                   </div>
-                  {/* Row 2 (skeleton): two side-by-side, each with a scheduled-time bar
-                      (big) + an actual-time bar (smaller) + an IATA bar (smallest).
+                  {/* Row 2 (skeleton): single-line flight path skeleton —
+                      departure side ── spacer ── arrival side. Each side is
+                      a tight cluster of (IATA label + scheduled bar + arrow
+                      stub + actual bar) sized to the real card's heights.
                       Mirrors the redesigned CompactFlightCard row 2 layout. */}
-                  <div className="grid grid-cols-2 gap-3">
-                    {[0, 1].map((col) => (
-                      <div key={col} className="flex flex-col gap-1 min-w-0">
-                        <div className="h-4 w-14 skeleton rounded" />
-                        <div className="h-3 w-20 skeleton rounded opacity-70" />
-                        <div className="h-2.5 w-10 skeleton rounded opacity-50" />
-                      </div>
-                    ))}
+                  <div className="flex items-center gap-x-2 sm:gap-x-4 mt-2 min-w-0">
+                    {/* Dep side skeleton */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="h-3 w-8 skeleton rounded" />
+                      <div className="h-4 w-12 skeleton rounded" />
+                      <div className="h-2 w-2 skeleton rounded opacity-50" />
+                      <div className="h-3 w-10 skeleton rounded opacity-70" />
+                    </div>
+                    {/* Spacer */}
+                    <div className="flex-1 min-w-[1rem]" aria-hidden="true" />
+                    {/* Arr side skeleton */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="h-3 w-8 skeleton rounded" />
+                      <div className="h-4 w-12 skeleton rounded" />
+                      <div className="h-2 w-2 skeleton rounded opacity-50" />
+                      <div className="h-3 w-10 skeleton rounded opacity-70" />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -959,7 +970,7 @@ function CompactFlightCard({
       : "not arrived";
 
   return (
-    <div className="group bg-white border border-border rounded-md px-3 py-2 transition-colors duration-200 hover:border-accent/40">
+    <div className="group bg-white border border-border rounded-md px-3 py-4 transition-colors duration-200 hover:border-accent/40">
       {/* Row 1: single dep traffic-light dot + meta line (date / flight# / airline [/ aircraft])
           + update button. ONE light per card. The meta line is wrapped in `truncate`
           so the entire `date / ref / airline / aircraft` ellipsizes from the right
@@ -1010,90 +1021,97 @@ function CompactFlightCard({
           {ui.flightUpdateButton}
         </button>
       </div>
-      {/* Row 2: dep (left) + arr (right). Each side shows the SCHEDULED time
-          first (big, primary visual weight) and the ACTUAL time beside it
-          (small, muted), with the airport IATA below. Per user request
-          "表定的時間, 你應該要先顯示阿". The existing 更新 button above is
+      {/* Row 2: single-line flight path. Dep side ── flex-1 gap ── Arr side,
+          so the whole card reads as a route on one line (PHX 09:05 → 09:10
+          … ELP 10:15 → 10:20) instead of two stacked blocks. Each side keeps
+          the existing info hierarchy: IATA label (semibold, ink) →
+          SCHEDULED (display, semibold, ink — primary) → arrow → ACTUAL
+          (sm, ink-light — muted). When actual is missing the slot shows
+          the localised `notYetLabel`; when actual === scheduled it shows
+          the localised `onTimeLabel`. The existing 更新 button above is
           the single entry point for editing both times. */}
-      <div className="grid grid-cols-2 gap-3 mt-1.5">
-        <Stop
-          iata={flight.dep_airport}
-          scheduled={fmtClock(flight.scheduled_dep)}
-          actual={flight.actual_dep ? fmtClock(flight.actual_dep) : null}
-          notYetLabel={notYetDepLabel}
-          onTimeLabel={ui.flightDelayOnTime}
-        />
-        <Stop
-          iata={flight.arr_airport}
-          scheduled={fmtClock(flight.scheduled_arr)}
-          actual={flight.actual_arr ? fmtClock(flight.actual_arr) : null}
-          notYetLabel={notYetArrLabel}
-          onTimeLabel={ui.flightDelayOnTime}
-        />
+      <div className="flex items-baseline gap-x-2 sm:gap-x-4 mt-2 min-w-0">
+        {/* Dep side: IATA · scheduled → actual. */}
+        <div className="flex items-baseline gap-x-1.5 min-w-0 shrink-0">
+          <span className="text-sm font-semibold tracking-wide text-ink uppercase shrink-0 leading-none">
+            {flight.dep_airport}
+          </span>
+          <span className="text-base font-display font-semibold text-ink tabular-nums shrink-0 leading-none">
+            {fmtClock(flight.scheduled_dep) || "—"}
+          </span>
+          <span
+            className="text-ink-light/50 text-xs shrink-0 leading-none"
+            aria-hidden="true"
+          >
+            →
+          </span>
+          <ActualTime
+            scheduled={fmtClock(flight.scheduled_dep)}
+            actual={flight.actual_dep ? fmtClock(flight.actual_dep) : null}
+            notYetLabel={notYetDepLabel}
+            onTimeLabel={ui.flightDelayOnTime}
+          />
+        </div>
+        {/* Spacer — pushes the arr side to the right edge of the card. */}
+        <div className="flex-1 min-w-[1rem]" aria-hidden="true" />
+        {/* Arr side: IATA · scheduled → actual. */}
+        <div className="flex items-baseline gap-x-1.5 min-w-0 shrink-0">
+          <span className="text-sm font-semibold tracking-wide text-ink uppercase shrink-0 leading-none">
+            {flight.arr_airport}
+          </span>
+          <span className="text-base font-display font-semibold text-ink tabular-nums shrink-0 leading-none">
+            {fmtClock(flight.scheduled_arr) || "—"}
+          </span>
+          <span
+            className="text-ink-light/50 text-xs shrink-0 leading-none"
+            aria-hidden="true"
+          >
+            →
+          </span>
+          <ActualTime
+            scheduled={fmtClock(flight.scheduled_arr)}
+            actual={flight.actual_arr ? fmtClock(flight.actual_arr) : null}
+            notYetLabel={notYetArrLabel}
+            onTimeLabel={ui.flightDelayOnTime}
+          />
+        </div>
       </div>
     </div>
   );
 }
 
-// ---------- Stop (one side of a flight card) ----------
+// ---------- ActualTime (the muted annotation after `→` in row 2) ----------
 //
-// Layout (scheduled-first, per user request "表定的時間, 你應該要先顯示阿"):
-//   Line 1: scheduled time (BIG, primary visual weight) → actual (small, muted)
-//   Line 2: airport IATA (small, muted)
-// Scheduled dominates by font-size + weight + colour; actual is a secondary
-// annotation on the same line. When actual === scheduled we collapse to the
-// localised "on time" string (italic, muted). When actual is missing entirely
-// we show the localised `notYetLabel` (italic, very muted) instead of the time.
+// Inline-span companion to the new single-line row 2 layout. Renders the
+// ACTUAL time with the same three states the previous Stop component had:
+// missing → `notYetLabel` (italic, very muted), equal to scheduled →
+// `onTimeLabel` (italic, muted), otherwise → the actual clock. Stays a
+// single inline span so it sits on the same baseline as the IATA label
+// and the scheduled time on either side.
 
-function Stop({
-  iata,
+function ActualTime({
   scheduled,
   actual,
   notYetLabel,
   onTimeLabel,
 }: {
-  iata: string;
   scheduled: string;
   actual: string | null;
   notYetLabel: string;
   onTimeLabel: string;
 }) {
   const sameAsScheduled = !!scheduled && !!actual && scheduled === actual;
-  const actualText = !actual
+  const text = !actual
     ? notYetLabel
     : sameAsScheduled
     ? onTimeLabel
     : actual;
-  const actualClass = !actual
-    ? "text-ink-light/60 italic"
+  const className = !actual
+    ? "text-sm text-ink-light/60 italic leading-none shrink-0"
     : sameAsScheduled
-    ? "text-ink-light/80 italic"
-    : "text-ink-light";
-  return (
-    <div className="min-w-0">
-      {/* Time row: scheduled (big) → actual (small, muted). */}
-      <div className="flex items-baseline gap-1 leading-none min-w-0">
-        <span className="font-display font-semibold text-base text-ink tabular-nums leading-none shrink-0">
-          {scheduled || "—"}
-        </span>
-        <span
-          className="text-[10px] text-ink-light/50 leading-none shrink-0"
-          aria-hidden="true"
-        >
-          →
-        </span>
-        <span
-          className={`text-xs font-mono leading-none truncate ${actualClass}`}
-        >
-          {actualText}
-        </span>
-      </div>
-      {/* Airport IATA — under the times so scheduled stays the primary visual element. */}
-      <div className="text-[10px] text-ink-light mt-0.5 truncate leading-none font-body tracking-wide uppercase">
-        {iata}
-      </div>
-    </div>
-  );
+    ? "text-sm text-ink-light/80 italic leading-none shrink-0"
+    : "text-sm text-ink-light tabular-nums leading-none shrink-0";
+  return <span className={className}>{text}</span>;
 }
 
 // ---------- Update modal ----------
