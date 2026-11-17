@@ -1,0 +1,5 @@
+{
+  "generated_at": "2026-11-17T08:12:17.997053+00:00",
+  "instructions": "For each flight, use websearch to look up: dep_airport, arr_airport (IATA), airline_name, aircraft_type, scheduled_dep (ISO with original offset), scheduled_arr (ISO with original offset). Save the result JSON to enrich_result_<ts>.json (same filename prefix), then run apply_enrichment.py.",
+  "flights": []
+}
