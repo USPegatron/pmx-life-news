@@ -20,6 +20,7 @@ import {
   filterNewsItems,
   getFallbackLandscape,
 } from "@/lib/utils";
+import { FlightsView } from "@/components/FlightsView";
 
 const REFRESH_INTERVAL = 10 * 60 * 1000; // 10 minutes
 const FETCH_LIMIT = 300;
@@ -41,6 +42,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [lastFetched, setLastFetched] = useState<Date | null>(null);
   const [selected, setSelected] = useState<NewsItem | null>(null);
+  const [view, setView] = useState<"news" | "flights">("news");
 
   // Filters
   const [language, setLanguage] = useState<Language>("en");
@@ -247,33 +249,65 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Row 2: Full-width search input */}
-          <div className="mt-2 w-full no-print">
-            <div className="relative">
-              <svg
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-light"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+          {/* Row 2: Full-width search input (news only) */}
+          {view === "news" && (
+            <div className="mt-2 w-full no-print">
+              <div className="relative">
+                <svg
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-light"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={ui.searchPlaceholder}
+                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-border rounded-lg
+                    text-ink placeholder-ink-light
+                    focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent
+                    transition-all duration-200"
                 />
-              </svg>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={ui.searchPlaceholder}
-                className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-border rounded-lg
-                  text-ink placeholder-ink-light
-                  focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent
-                  transition-all duration-200"
-              />
+              </div>
             </div>
+          )}
+
+          {/* Row 3: Tab switcher (News | Flights) */}
+          <div className="mt-2 flex items-center gap-2 no-print" role="tablist" aria-label="view">
+            <button
+              role="tab"
+              aria-selected={view === "news"}
+              onClick={() => setView("news")}
+              className={`flex-1 sm:flex-none px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 touch-target inline-flex items-center justify-center gap-1.5 ${
+                view === "news"
+                  ? "bg-white text-ink border border-border shadow-sm"
+                  : "bg-transparent text-ink-light hover:text-ink border border-transparent"
+              }`}
+            >
+              <span aria-hidden="true">📰</span>
+              <span>{ui.tabNews}</span>
+            </button>
+            <button
+              role="tab"
+              aria-selected={view === "flights"}
+              onClick={() => setView("flights")}
+              className={`flex-1 sm:flex-none px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 touch-target inline-flex items-center justify-center gap-1.5 ${
+                view === "flights"
+                  ? "bg-white text-ink border border-border shadow-sm"
+                  : "bg-transparent text-ink-light hover:text-ink border border-transparent"
+              }`}
+            >
+              <span aria-hidden="true">✈️</span>
+              <span>{ui.tabFlights}</span>
+            </button>
           </div>
         </div>
       </header>
@@ -281,17 +315,34 @@ export default function Home() {
       {/* Hub Title Bar (scrolls away) */}
       <div className="bg-paper border-b border-border no-print">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <h1 className="text-2xl sm:text-3xl font-display font-semibold text-ink tracking-tight">
-            {ui.hubName}
-          </h1>
-          <p className="text-sm text-ink-light mt-0.5 font-body">
-            {ui.hubSubtitle}
-          </p>
+          {view === "news" ? (
+            <>
+              <h1 className="text-2xl sm:text-3xl font-display font-semibold text-ink tracking-tight">
+                {ui.hubName}
+              </h1>
+              <p className="text-sm text-ink-light mt-0.5 font-body">
+                {ui.hubSubtitle}
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-2xl sm:text-3xl font-display font-semibold text-ink tracking-tight">
+                {ui.flightHubTitle}
+              </h1>
+              <p className="text-sm text-ink-light mt-0.5 font-body">
+                {ui.flightHubSubtitle}
+              </p>
+            </>
+          )}
         </div>
       </div>
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {view === "flights" ? (
+          <FlightsView language={language} />
+        ) : (
+          <>
         {/* Loading state — row-shaped skeletons */}
         {isLoading && (
           <div className="flex flex-col gap-4">
@@ -387,13 +438,17 @@ export default function Home() {
             ))}
           </div>
         )}
+          </>
+        )}
       </div>
 
       {/* Footer */}
       <footer className="border-t border-border mt-12 no-print">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <p className="text-center text-sm text-ink-light">
-            {ui.hubName} — {ui.hubSubtitle}
+            {view === "news"
+              ? `${ui.hubName} — ${ui.hubSubtitle}`
+              : `${ui.flightHubTitle} — ${ui.flightHubSubtitle}`}
           </p>
         </div>
       </footer>

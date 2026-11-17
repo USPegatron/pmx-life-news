@@ -31,3 +31,31 @@ export interface TranslatedContent {
   title: string;
   summary: string;
 }
+
+/**
+ * One flight row from `public.flights_to_track`.
+ *
+ * Non-null fields: id, flight_date, dep_airport, arr_airport, airline_code,
+ * flight_number, status, updated_by, created_at, updated_at (all `string`).
+ *
+ * Nullable fields: scheduled_dep, scheduled_arr, actual_dep, actual_arr,
+ * notes (`string | null`); delay_minutes (`number | null`).
+ */
+export interface Flight {
+  id: string;
+  flight_date: string;
+  dep_airport: string;
+  arr_airport: string;
+  airline_code: string;
+  flight_number: string;
+  status: string;
+  scheduled_dep: string | null;
+  scheduled_arr: string | null;
+  actual_dep: string | null;
+  actual_arr: string | null;
+  delay_minutes: number | null;
+  notes: string | null;
+  updated_by: string;
+  created_at: string;
+  updated_at: string;
+}

@@ -1,4 +1,4 @@
-import type { NewsItem, Language, TranslatedContent } from "./types";
+import type { Flight, NewsItem, Language, TranslatedContent } from "./types";
 
 /**
  * Get translated content for a news item based on language
@@ -251,6 +251,189 @@ export function getUIStrings(lang: Language) {
         : lang === "es"
         ? "No es foto de la noticia"
         : "Not a news photo",
+
+    // -------- Flight tracker --------
+    flightHubTitle:
+      lang === "zh"
+        ? "航班追蹤"
+        : lang === "es"
+        ? "Seguimiento de Vuelos"
+        : "Flight Tracker",
+    flightHubSubtitle:
+      lang === "zh"
+        ? "PMX 公司出差航班狀態"
+        : lang === "es"
+        ? "Estado de vuelos de viaje de empresa PMX"
+        : "PMX company trip flight status",
+
+    flightImportTitle:
+      lang === "zh"
+        ? "匯入航班清單"
+        : lang === "es"
+        ? "Importar lista de vuelos"
+        : "Import flight list",
+    flightImportHint:
+      lang === "zh"
+        ? "每行一筆：flight_date(YYYY-MM-DD),dep_airport,arr_airport,airline_code,flight_number[,scheduled_dep][,scheduled_arr]"
+        : lang === "es"
+        ? "Una línea por vuelo: flight_date(YYYY-MM-DD),dep_airport,arr_airport,airline_code,flight_number[,scheduled_dep][,scheduled_arr]"
+        : "One flight per line: flight_date(YYYY-MM-DD),dep_airport,arr_airport,airline_code,flight_number[,scheduled_dep][,scheduled_arr]",
+    flightImportButton:
+      lang === "zh" ? "上傳" : lang === "es" ? "Subir" : "Upload",
+    flightImportToggle:
+      lang === "zh"
+        ? "匯入航班清單"
+        : lang === "es"
+        ? "Importar lista"
+        : "Import flight list",
+    flightImportSuccess: (n: number) =>
+      lang === "zh"
+        ? `已匯入 ${n} 筆`
+        : lang === "es"
+        ? `Se importaron ${n} vuelos`
+        : `Imported ${n} flights`,
+    flightImportFailed:
+      lang === "zh"
+        ? "匯入失敗"
+        : lang === "es"
+        ? "Error al importar"
+        : "Import failed",
+
+    flightUpdateButton:
+      lang === "zh" ? "更新" : lang === "es" ? "Actualizar" : "Update",
+    flightSaveButton:
+      lang === "zh" ? "儲存" : lang === "es" ? "Guardar" : "Save",
+    flightCancelButton:
+      lang === "zh" ? "取消" : lang === "es" ? "Cancelar" : "Cancel",
+    flightCloseButton:
+      lang === "zh" ? "關閉" : lang === "es" ? "Cerrar" : "Close",
+    flightUpdateModalTitle: (flightRef: string) =>
+      lang === "zh"
+        ? `更新航班 — ${flightRef}`
+        : lang === "es"
+        ? `Actualizar vuelo — ${flightRef}`
+        : `Update flight — ${flightRef}`,
+
+    flightStatusScheduled:
+      lang === "zh" ? "已排定" : lang === "es" ? "Programado" : "Scheduled",
+    flightStatusDeparted:
+      lang === "zh" ? "已出發" : lang === "es" ? "Salió" : "Departed",
+    flightStatusArrived:
+      lang === "zh" ? "已抵達" : lang === "es" ? "Llegó" : "Arrived",
+    flightStatusCancelled:
+      lang === "zh" ? "已取消" : lang === "es" ? "Cancelado" : "Cancelled",
+    flightStatusLabel:
+      lang === "zh" ? "狀態" : lang === "es" ? "Estado" : "Status",
+    flightUpdatedByLabel:
+      lang === "zh" ? "更新者" : lang === "es" ? "Actualizado por" : "Updated by",
+    flightNotesLabel:
+      lang === "zh" ? "備註" : lang === "es" ? "Notas" : "Notes",
+    flightUpdatedByHuman: lang === "zh" ? "人工" : lang === "es" ? "Humano" : "Human",
+    flightUpdatedByAi: lang === "zh" ? "AI" : lang === "es" ? "IA" : "AI",
+    flightUpdatedByImport:
+      lang === "zh" ? "匯入" : lang === "es" ? "Importar" : "Import",
+
+    flightEmptyTitle:
+      lang === "zh"
+        ? "目前沒有追蹤的航班"
+        : lang === "es"
+        ? "Sin vuelos rastreados"
+        : "No tracked flights",
+    flightEmptyHint:
+      lang === "zh"
+        ? "請使用「匯入航班清單」加入行程。"
+        : lang === "es"
+        ? "Usa «Importar lista» para añadir vuelos."
+        : "Use \"Import flight list\" to add flights.",
+
+    flightFilterToday:
+      lang === "zh" ? "今日" : lang === "es" ? "Hoy" : "Today",
+    flightFilter7d:
+      lang === "zh"
+        ? "未來 7 日"
+        : lang === "es"
+        ? "Próximos 7 días"
+        : "Next 7 days",
+    flightFilterAll:
+      lang === "zh" ? "全部" : lang === "es" ? "Todos" : "All",
+
+    flightTimeScheduled:
+      lang === "zh" ? "預定" : lang === "es" ? "Programado" : "Scheduled",
+    flightTimeActual:
+      lang === "zh" ? "實際" : lang === "es" ? "Real" : "Actual",
+
+    flightLabelDeparture:
+      lang === "zh" ? "出發" : lang === "es" ? "Salida" : "Departure",
+    flightLabelArrival:
+      lang === "zh" ? "抵達" : lang === "es" ? "Llegada" : "Arrival",
+
+    flightRefresh:
+      lang === "zh" ? "重新整理" : lang === "es" ? "Actualizar" : "Refresh",
+
+    flightDelayOnTime:
+      lang === "zh" ? "已準時" : lang === "es" ? "A tiempo" : "On time",
+    flightDelayEarly: (n: number) =>
+      lang === "zh"
+        ? `提早 ${n} 分鐘`
+        : lang === "es"
+        ? `Adelantado ${n} min`
+        : `${n} min early`,
+    flightDelayLate: (n: number) =>
+      lang === "zh"
+        ? `延誤 ${n} 分鐘`
+        : lang === "es"
+        ? `Retrasado ${n} min`
+        : `${n} min late`,
+    flightDelayMinutes: (n: number) =>
+      lang === "zh"
+        ? `${n} 分鐘`
+        : lang === "es"
+        ? `${n} min`
+        : `${n} min`,
+
+    flightPresetOnTime:
+      lang === "zh"
+        ? "已準時 (+0)"
+        : lang === "es"
+        ? "A tiempo (+0)"
+        : "On time (+0)",
+    flightPresetDelay20:
+      lang === "zh"
+        ? "延誤 20 分鐘"
+        : lang === "es"
+        ? "Retraso 20 min"
+        : "Delay 20 min",
+    flightPresetDelay60:
+      lang === "zh"
+        ? "延誤 60 分鐘"
+        : lang === "es"
+        ? "Retraso 60 min"
+        : "Delay 60 min",
+    flightPresetCancelled:
+      lang === "zh" ? "已取消" : lang === "es" ? "Cancelado" : "Cancelled",
+
+    flightSavingLabel:
+      lang === "zh" ? "儲存中…" : lang === "es" ? "Guardando…" : "Saving…",
+    flightUpdatedToast:
+      lang === "zh"
+        ? "已更新"
+        : lang === "es"
+        ? "Actualizado"
+        : "Updated",
+    flightLoadError:
+      lang === "zh"
+        ? "無法載入航班"
+        : lang === "es"
+        ? "No se pudieron cargar los vuelos"
+        : "Unable to load flights",
+    flightFlight: (ref: string) =>
+      lang === "zh" ? `航班 ${ref}` : lang === "es" ? `Vuelo ${ref}` : `Flight ${ref}`,
+
+    // -------- Tab switcher --------
+    tabNews:
+      lang === "zh" ? "新聞" : lang === "es" ? "Noticias" : "News",
+    tabFlights:
+      lang === "zh" ? "航班追蹤" : lang === "es" ? "Vuelos" : "Flights",
   };
 }
 
@@ -313,4 +496,48 @@ export function filterNewsItems(
   }
 
   return filtered;
+}
+
+/** Traffic-light colour for a flight row. */
+export type FlightTrafficLight =
+  | "green"
+  | "blue"
+  | "yellow"
+  | "red"
+  | "black";
+
+/**
+ * Rules (first match wins):
+ *   - black: status === "cancelled"
+ *   - blue : delay_minutes <= -15 (early)
+ *   - red  : delay_minutes > 30   (delayed more than 30 min)
+ *   - yellow: delay_minutes >= 15 (delayed 15..30 min)
+ *   - green: otherwise (on-time ±15 min, or no delay data)
+ */
+export function flightTrafficLight(flight: Flight): FlightTrafficLight {
+  if (flight.status === "cancelled") return "black";
+
+  const d = flight.delay_minutes;
+  if (d === null || d === undefined || Number.isNaN(d)) return "green";
+
+  if (d <= -15) return "blue";
+  if (d > 30) return "red";
+  if (d >= 15) return "yellow";
+  return "green";
+}
+
+/** Map a traffic-light value to the Tailwind background class. */
+export function flightTrafficLightClass(light: FlightTrafficLight): string {
+  switch (light) {
+    case "green":
+      return "bg-emerald-500";
+    case "blue":
+      return "bg-sky-500";
+    case "yellow":
+      return "bg-amber-500";
+    case "red":
+      return "bg-rose-500";
+    case "black":
+      return "bg-zinc-900";
+  }
 }
