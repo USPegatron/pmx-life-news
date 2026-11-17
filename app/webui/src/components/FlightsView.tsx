@@ -44,12 +44,23 @@ function plusDaysISODate(days: number): string {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
-/** "HH:mm" in local time for an ISO timestamp (or empty). */
+/**
+ * Extract "HH:mm" directly from an ISO literal string WITHOUT timezone conversion.
+ * The stored ISO carries the airport's local timezone (e.g. "2026-11-17T19:40:00+08:00"),
+ * so we want the HH:mm as written, not the browser's local time.
+ */
 function fmtClock(iso: string | null): string {
   if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  const m = iso.match(/T(\d{2}):(\d{2})/);
+  return m ? `${m[1]}:${m[2]}` : "";
+}
+
+/** Extract "M/D" from the date portion of an ISO literal (no timezone conversion). */
+function fmtDate(iso: string | null): string {
+  if (!iso) return "";
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return "";
+  return `${parseInt(m[2], 10)}/${parseInt(m[3], 10)}`;
 }
 
 /** ISO → "YYYY-MM-DDTHH:mm" for <input type="datetime-local">. */
@@ -1036,6 +1047,9 @@ function CompactFlightCard({
           <span className="text-sm font-semibold tracking-wide text-ink uppercase shrink-0 leading-none">
             {flight.dep_airport}
           </span>
+          <span className="text-[10px] text-ink-light tabular-nums shrink-0 leading-none" title="Departure date">
+            {fmtDate(flight.scheduled_dep) || "—"}
+          </span>
           <span className="text-base font-display font-semibold text-ink tabular-nums shrink-0 leading-none">
             {fmtClock(flight.scheduled_dep) || "—"}
           </span>
@@ -1054,10 +1068,13 @@ function CompactFlightCard({
         </div>
         {/* Spacer — pushes the arr side to the right edge of the card. */}
         <div className="flex-1 min-w-[1rem]" aria-hidden="true" />
-        {/* Arr side: IATA · scheduled → actual. */}
+        {/* Arr side: IATA · date · scheduled → actual. */}
         <div className="flex items-baseline gap-x-1.5 min-w-0 shrink-0">
           <span className="text-sm font-semibold tracking-wide text-ink uppercase shrink-0 leading-none">
             {flight.arr_airport}
+          </span>
+          <span className="text-[10px] text-ink-light tabular-nums shrink-0 leading-none" title="Arrival date">
+            {fmtDate(flight.scheduled_arr) || "—"}
           </span>
           <span className="text-base font-display font-semibold text-ink tabular-nums shrink-0 leading-none">
             {fmtClock(flight.scheduled_arr) || "—"}
