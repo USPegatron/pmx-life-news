@@ -20,7 +20,7 @@ import {
   filterNewsItems,
   getFallbackLandscape,
 } from "@/lib/utils";
-import { FlightsView } from "@/components/FlightsView";
+import { FlightsView, type FlightsViewHandle } from "@/components/FlightsView";
 
 const REFRESH_INTERVAL = 10 * 60 * 1000; // 10 minutes
 const FETCH_LIMIT = 300;
@@ -63,6 +63,10 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [topicFilter, setTopicFilter] = useState<TopicFilter>("all");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+
+  // Flight header controls (lifted for page header rendering)
+  const [flightRange, setFlightRange] = useState<"today" | "7d" | "all">("all");
+  const flightsRef = useRef<FlightsViewHandle | null>(null);
 
   const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -283,7 +287,46 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Mark 3 — Cycling controls [Language | Topic | Time | Refresh] (RIGHT) */}
+          {/* Mark 3 — RIGHT side controls: cycling (news) or flight buttons (flights) */}
+          {view === "flights" ? (
+          <div className="flex-shrink-0 flex items-center gap-1.5">
+            <div className="inline-flex rounded-lg border border-border bg-white p-0.5">
+              {([["today","今日"],["7d","7日"],["all","全部"]] as const).map(([key, label]) => (
+                <button key={key} onClick={() => setFlightRange(key)}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${flightRange === key ? "bg-ink text-paper" : "text-ink-light hover:text-ink"}`}
+                  aria-pressed={flightRange === key}>{label}</button>
+              ))}
+            </div>
+            <button onClick={() => flightsRef.current?.refresh()}
+              className="inline-flex items-center justify-center px-2 py-1.5 text-sm bg-white border border-border rounded-lg text-ink-light hover:text-accent hover:border-accent/50 transition-all"
+              aria-label="refresh flights">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              </svg>
+            </button>
+            <button onClick={() => flightsRef.current?.refreshAll()}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-white border border-border rounded-lg text-ink-light hover:text-accent hover:border-accent/50 transition-all">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              </svg>
+              <span>更新全部</span>
+            </button>
+            <button onClick={() => flightsRef.current?.toggleImport()}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-white border border-border rounded-lg text-ink-light hover:text-accent hover:border-accent/50 transition-all">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5m0 0l5 5m-5-5v12"/>
+              </svg>
+              <span>匯入</span>
+            </button>
+            <a href="/history"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-white border border-border rounded-lg text-ink-light hover:text-accent hover:border-accent/50 transition-all">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <span>歷史</span>
+            </a>
+          </div>
+          ) : (
           <div className="flex-shrink-0 flex items-center gap-1">
             {/* Language — stacked icon + label, compact */}
             <button
@@ -359,6 +402,7 @@ export default function Home() {
               </svg>
             </button>
           </div>
+          )}
         </div>
 
         {/* Mobile (<sm): two compact rows
@@ -436,7 +480,21 @@ export default function Home() {
                 </div>
               </div>
             )}
-            {/* Cycling buttons — horizontal icon + inline label, very compact */}
+            {/* RIGHT controls: flight buttons (flights) or cycling (news) */}
+            {view === "flights" ? (
+            <div className="flex-shrink-0 flex items-center gap-1 overflow-x-auto">
+              <div className="inline-flex rounded-lg border border-border bg-white p-0.5">
+                {([["today","今日"],["7d","7日"],["all","全部"]] as const).map(([key, label]) => (
+                  <button key={key} onClick={() => setFlightRange(key)}
+                    className={`px-2 py-1 text-[11px] font-medium rounded-md transition-colors ${flightRange === key ? "bg-ink text-paper" : "text-ink-light hover:text-ink"}`}>{label}</button>
+                ))}
+              </div>
+              <button onClick={() => flightsRef.current?.refresh()} className="px-1.5 py-1 bg-white border border-border rounded-lg text-ink-light" aria-label="refresh"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>
+              <button onClick={() => flightsRef.current?.refreshAll()} className="px-2 py-1 text-[11px] font-medium bg-white border border-border rounded-lg text-ink-light">更新全部</button>
+              <button onClick={() => flightsRef.current?.toggleImport()} className="px-2 py-1 text-[11px] font-medium bg-white border border-border rounded-lg text-ink-light">匯入</button>
+              <a href="/history" className="px-2 py-1 text-[11px] font-medium bg-white border border-border rounded-lg text-ink-light whitespace-nowrap">歷史</a>
+            </div>
+            ) : (
             <div className="flex-shrink-0 flex items-center gap-1">
               <button
                 onClick={cycleLanguage}
@@ -505,6 +563,7 @@ export default function Home() {
                 </svg>
               </button>
             </div>
+            )}
           </div>
         </div>
       </header>
@@ -512,7 +571,7 @@ export default function Home() {
       {/* Content */}
       <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 ${view === "flights" ? "pt-0" : "pt-8"}`}>
         {view === "flights" ? (
-          <FlightsView language={language} />
+          <FlightsView ref={flightsRef} language={language} range={flightRange} onRangeChange={setFlightRange} />
         ) : (
           <>
         {/* Loading state — row-shaped skeletons */}

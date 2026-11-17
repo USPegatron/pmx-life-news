@@ -1,12 +1,15 @@
 "use client";
 
 import {
+  forwardRef,
   useCallback,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
   type FormEvent,
+  type ForwardedRef,
 } from "react";
 import type { Flight, Language } from "@/lib/types";
 import {
@@ -210,7 +213,22 @@ const EMPTY_FORM: UpdateForm = {
 
 // ---------- Component ----------
 
-export function FlightsView({ language }: { language: Language }) {
+export interface FlightsViewHandle {
+  refresh: () => void;
+  refreshAll: () => void;
+  toggleImport: () => void;
+}
+
+interface FlightsViewProps {
+  language: Language;
+  range: Range;
+  onRangeChange: (r: Range) => void;
+}
+
+export const FlightsView = forwardRef(function FlightsView(
+  { language, range, onRangeChange }: FlightsViewProps,
+  ref: ForwardedRef<FlightsViewHandle>,
+) {
   const ui = getUIStrings(language);
 
   // List state
@@ -219,7 +237,6 @@ export function FlightsView({ language }: { language: Language }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isRefreshingAll, setIsRefreshingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [range, setRange] = useState<Range>("7d");
 
   // Import state
   const [importOpen, setImportOpen] = useState(false);
@@ -354,6 +371,13 @@ export function FlightsView({ language }: { language: Language }) {
       setIsRefreshingAll(false);
     }
   };
+
+  // Expose actions to parent (page header buttons)
+  useImperativeHandle(ref, () => ({
+    refresh: handleRefresh,
+    refreshAll: handleRefreshAll,
+    toggleImport: () => setImportOpen((v) => !v),
+  }), [handleRefresh, handleRefreshAll]);
 
   const handleImport = async () => {
     const text = importText.trim();
@@ -608,127 +632,8 @@ export function FlightsView({ language }: { language: Language }) {
 
   return (
     <>
-      {/* Top sticky block: filter row + column headers (desktop). */}
-      <div className="sticky top-[79px] sm:top-[49px] z-40 bg-paper/95 backdrop-blur-sm border-b border-border px-3 sm:px-6 mb-2">
-      <div className="py-1.5 flex flex-wrap items-center gap-2">
-        <div
-          role="group"
-          aria-label="flight range"
-          className="inline-flex rounded-lg border border-border bg-white p-0.5"
-        >
-          {(
-            [
-              ["today", ui.flightFilterToday],
-              ["7d", ui.flightFilter7d],
-              ["all", ui.flightFilterAll],
-            ] as Array<[Range, string]>
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setRange(key)}
-              className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors duration-200 ${
-                range === key
-                  ? "bg-ink text-paper"
-                  : "text-ink-light hover:text-ink"
-              }`}
-              aria-pressed={range === key}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <button
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          aria-label={ui.flightRefresh}
-          className="inline-flex items-center justify-center px-2.5 py-1.5 text-sm font-medium
-            bg-white border border-border rounded-lg
-            text-ink-light hover:text-accent hover:border-accent/50
-            transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
-            shrink-0"
-        >
-          <svg
-            className={`w-4 h-4 ${isRefreshing ? "spin" : ""}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
-        </button>
-
-        {/* "Refresh all" — triggers POST /api/flights/check-now on the server,
-            which iterates every tracked flight and reports a result summary. */}
-        <button
-          onClick={handleRefreshAll}
-          disabled={isRefreshingAll}
-          aria-label={ui.flightRefreshAll}
-          title={ui.flightRefreshAll}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium
-            bg-white border border-border rounded-lg
-            text-ink-light hover:text-accent hover:border-accent/50
-            transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
-            shrink-0"
-        >
-          <svg
-            className={`w-4 h-4 ${isRefreshingAll ? "spin" : ""}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
-          <span>{ui.flightRefreshAll}</span>
-        </button>
-
-        <button
-          onClick={() => {
-            setImportOpen((v) => !v);
-            setImportError(null);
-          }}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium
-            bg-white border border-border rounded-lg
-            text-ink-light hover:text-accent hover:border-accent/50
-            transition-all duration-200"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5m0 0l5 5m-5-5v12"
-            />
-          </svg>
-          <span>{ui.flightImportToggle}</span>
-        </button>
-
-        {/* History link */}
-        <a
-          href="/history"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium
-            bg-white border border-border rounded-lg
-            text-ink-light hover:text-accent hover:border-accent/50
-            transition-all duration-200 shrink-0"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span>歷史紀錄</span>
-        </a>
-      </div>
+      {/* Column headers — desktop only (mobile shows them inside each column) */}
+      <div className="sticky top-[47px] sm:top-[49px] z-40 bg-paper/95 backdrop-blur-sm border-b border-border px-3 sm:px-6 mb-2">
       {/* Column headers — desktop only, matches the grid below */}
       <div className="hidden lg:grid lg:grid-cols-2 lg:gap-4 lg:pb-1.5">
         <div className="flex items-center gap-2">
@@ -1013,7 +918,7 @@ export function FlightsView({ language }: { language: Language }) {
       )}
     </>
   );
-}
+});
 
 // ---------- Flight column (left or right) ----------
 
