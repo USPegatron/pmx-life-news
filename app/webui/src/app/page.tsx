@@ -773,13 +773,13 @@ function ArticleOverlay({
       aria-modal="true"
       aria-label={content.title}
     >
-      {/* Full-screen sheet on mobile, centered dialog on desktop (~80% screen) */}
+      {/* Panel: full-screen sheet on mobile, two-column split dialog on desktop (~90vw) */}
       <div
-        className="relative bg-paper w-screen sm:w-[80vw] max-w-full sm:max-w-3xl sm:rounded-2xl sm:shadow-xl sm:my-8 min-h-[100dvh] sm:min-h-0 sm:max-h-[80vh] flex flex-col"
+        className="relative bg-paper w-screen sm:w-[90vw] max-w-full sm:max-w-[1600px] sm:rounded-2xl sm:shadow-xl sm:my-8 sm:mx-auto min-h-[100dvh] sm:min-h-0 sm:max-h-[90vh] flex flex-col sm:grid sm:grid-cols-[minmax(0,45%)_minmax(0,55%)] sm:gap-0"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Sticky header bar */}
-        <div className="sticky top-0 z-10 bg-paper/95 backdrop-blur border-b border-border sm:rounded-t-2xl px-4 sm:px-6 py-4 flex-shrink-0">
+        {/* Sticky header — mobile only (desktop has its own header inside the right column). */}
+        <div className="sm:hidden sticky top-0 z-10 bg-paper/95 backdrop-blur border-b border-border px-4 py-4 flex-shrink-0">
           <div className="flex items-start gap-3 sm:gap-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1.5">
@@ -837,24 +837,85 @@ function ArticleOverlay({
 
         {/* Image carousel (~35vh desktop / ~30vh mobile). Always rendered —
             when the item has no real images, the carousel uses a local El Paso
-            / Juárez landscape and surfaces the "not a news photo" badge. */}
-        <ImageCarousel
-          images={imageList}
-          altFallback={content.title}
-          viewImageLabel={labels.viewImage}
-          notNewsPhotoLabel={isFallbackImage ? ui.notNewsPhotoLabel : undefined}
-          onImageTap={(src) => setLightboxSrc(src)}
-        />
+            / Juárez landscape and surfaces the "not a news photo" badge.
+            On desktop this wrapper becomes the left column and fills the
+            full 90vh height; on mobile it stays a band above the content. */}
+        <div className="flex-shrink-0 sm:order-1 sm:h-[90vh] sm:overflow-hidden">
+          <ImageCarousel
+            images={imageList}
+            altFallback={content.title}
+            viewImageLabel={labels.viewImage}
+            notNewsPhotoLabel={isFallbackImage ? ui.notNewsPhotoLabel : undefined}
+            onImageTap={(src) => setLightboxSrc(src)}
+          />
+        </div>
+
+        {/* Right column — mobile: just body; desktop: sticky header + scrollable body */}
+        <div className="flex flex-col flex-1 sm:order-2 sm:h-[90vh] sm:overflow-hidden">
+          {/* Desktop sticky header — source + time + topic + Open original + close (no title;
+              title lives in the body below). Sticks to the top of the right column. */}
+          <div className="hidden sm:block sticky top-0 z-10 bg-paper/95 backdrop-blur border-b border-border sm:rounded-tr-2xl px-6 py-4 flex-shrink-0">
+            <div className="flex items-start gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  {item.source && (
+                    <span className="text-xs font-medium text-ink-light uppercase tracking-wide truncate">
+                      {item.source}
+                    </span>
+                  )}
+                  {formatRelativeTime(item.published_at, language) && (
+                    <>
+                      <span className="w-1 h-1 rounded-full bg-border shrink-0" />
+                      <span className="text-xs text-ink-light shrink-0">
+                        {formatRelativeTime(item.published_at, language)}
+                      </span>
+                    </>
+                  )}
+                  <span
+                    className={`ml-1 px-2 py-0.5 text-[10px] font-semibold rounded-full uppercase tracking-wider text-white shrink-0 ${
+                      isBorder ? "bg-border-topic/90" : "bg-aviation-topic/90"
+                    }`}
+                  >
+                    {isBorder ? "Border" : "Aviation"}
+                  </span>
+                </div>
+              </div>
+              {/* Open original (external) — desktop sticky header */}
+              {item.url && (
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex flex-shrink-0 items-center gap-1 px-3 py-2 text-xs font-medium text-accent hover:text-accent-hover border border-accent/30 hover:border-accent/60 rounded-lg transition-colors"
+                  aria-label={labels.link}
+                >
+                  {labels.link}
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              )}
+              <button
+                onClick={onClose}
+                aria-label={labels.close}
+                className="flex-shrink-0 p-2 -m-2 rounded-lg text-ink-light hover:text-ink hover:bg-ink/5 transition-colors touch-target"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
 
         {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 sm:py-6">
           {/* Title (translated, large) */}
-          <h1 className="text-xl sm:text-2xl font-display font-semibold text-ink leading-tight mb-3">
+          <h1 className="text-xl sm:text-2xl font-display font-semibold text-ink leading-tight mb-3 sm:mb-5">
             {content.title}
           </h1>
 
-          {/* Source + relative time */}
-          <div className="flex items-center gap-2 mb-5 text-sm">
+          {/* Source + relative time — mobile only (desktop shows these in the sticky header) */}
+          <div className="sm:hidden flex items-center gap-2 mb-5 text-sm">
             {item.source && (
               <span className="font-medium text-ink-light uppercase tracking-wide">
                 {item.source}
@@ -937,6 +998,7 @@ function ArticleOverlay({
             </div>
           )}
         </div>
+        </div>
       </div>
 
       {/* Lightbox — fullscreen zoom + pan */}
@@ -988,7 +1050,7 @@ function ImageCarousel({
   };
 
   return (
-    <div className="relative bg-black/5 flex-shrink-0">
+    <div className="relative bg-black/5 flex-shrink-0 sm:h-full sm:overflow-hidden">
       {notNewsPhotoLabel && (
         <span className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10 px-2 py-0.5 text-[10px] sm:text-xs font-medium rounded bg-black/60 text-white pointer-events-none">
           {notNewsPhotoLabel}
@@ -997,7 +1059,7 @@ function ImageCarousel({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex overflow-x-auto snap-x snap-mandatory h-[30vh] sm:h-[35vh] w-full"
+        className="flex overflow-x-auto snap-x snap-mandatory h-[30vh] sm:h-full w-full"
         aria-label="Article images"
         role="region"
       >
@@ -1020,7 +1082,7 @@ function ImageCarousel({
                   loading="lazy"
                   draggable={false}
                   onError={() => markBroken(i)}
-                  className="max-w-full max-h-full object-contain select-none pointer-events-none"
+                  className="h-full w-full object-contain select-none pointer-events-none"
                 />
               )}
             </button>
