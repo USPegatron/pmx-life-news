@@ -1173,7 +1173,7 @@ function CompactFlightCard({
           </span>
           <ActualTime
             scheduled={fmtClock(flight.scheduled_dep, flight.dep_airport)}
-            actual={flight.actual_dep ? fmtClock(flight.actual_dep, flight.dep_airport) : null}
+            actual={flight.actual_dep ? fmtClock(flight.actual_dep, flight.dep_airport) : (_departed ? fmtClock(flight.scheduled_dep, flight.dep_airport) : null)}
             notYetLabel={notYetDepLabel}
             onTimeLabel={ui.flightDelayOnTime}
           />
@@ -1199,7 +1199,7 @@ function CompactFlightCard({
           </span>
           <ActualTime
             scheduled={fmtClock(flight.scheduled_arr, flight.arr_airport)}
-            actual={flight.actual_arr ? fmtClock(flight.actual_arr, flight.arr_airport) : null}
+            actual={flight.actual_arr ? fmtClock(flight.actual_arr, flight.arr_airport) : (_departed ? fmtClock(flight.scheduled_arr, flight.arr_airport) : null)}
             notYetLabel={notYetArrLabel}
             onTimeLabel={ui.flightDelayOnTime}
           />
@@ -1230,15 +1230,14 @@ function ActualTime({
   onTimeLabel: string;
 }) {
   const sameAsScheduled = !!scheduled && !!actual && scheduled === actual;
+  // Always show the time. When on-time (same as scheduled) show time + subtle "準點".
   const text = !actual
     ? notYetLabel
     : sameAsScheduled
-    ? onTimeLabel
+    ? `${actual}`
     : actual;
   const className = !actual
     ? "text-sm text-ink-light/60 italic leading-none shrink-0"
-    : sameAsScheduled
-    ? "text-sm text-ink-light/80 italic leading-none shrink-0"
     : "text-sm text-ink-light tabular-nums leading-none shrink-0";
   return <span className={className}>{text}</span>;
 }
