@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
+
+const AVIATIONSTACK_KEY = process.env.AVIATIONSTACK_API_KEY || "";
 
 /**
  * POST /api/flights/import
@@ -130,5 +133,55 @@ export async function POST(req: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  return NextResponse.json({ upserted: data?.length || 0, skipped, flights: data });
+
+  // --- AviationStack auto-enrichment ---
+  // For flights missing scheduled_dep, query AviationStack to fill in
+  // scheduled times + aircraft type + dep/arr airports.
+  let enriched = 0;
+  const needsEnrich = (data || []).filter(
+    (f: any) => !f.scheduled_dep && AVIATIONSTACK_KEY
+  );
+
+  if (needsEnrich.length > 0) {
+    for (const fl of needsEnrich) {
+      try {
+        const iata = `${fl.airline_code}${fl.flight_number}`;
+        const apiUrl = `https://api.aviationstack.com/v1/flights?access_key=${AVIATIONSTACK_KEY}&airline_code=${fl.airline_code}&flight_number=${fl.flight_number}&date=${fl.flight_date}`;
+        const r = await fetch(apiUrl, { signal: AbortSignal.timeout(10000) });
+        if (!r.ok) continue;
+        const json = await r.json();
+        const items: any[] = json?.data || [];
+        // Find the matching flight by IATA code
+        const match = items.find(
+          (it) => it.flight?.iata?.toUpperCase() === iata.toUpperCase()
+        );
+        if (!match) continue;
+
+        const update: Record<string, unknown> = {};
+        if (match.departure?.scheduled) update.scheduled_dep = match.departure.scheduled;
+        if (match.arrival?.scheduled) update.scheduled_arr = match.arrival.scheduled;
+        if (match.departure?.iata && !fl.dep_airport) update.dep_airport = match.departure.iata;
+        if (match.arrival?.iata && !fl.arr_airport) update.arr_airport = match.arrival.iata;
+        if (match.aircraft?.iata) update.aircraft_type = match.aircraft.iata;
+        if (match.airline?.name && !fl.airline_name) update.airline_name = match.airline.name;
+
+        if (Object.keys(update).length > 0) {
+          await supabase
+            .from("flights_to_track")
+            .update(update)
+            .eq("id", fl.id);
+          enriched++;
+        }
+      } catch {
+        // skip on error — don't block the import
+      }
+    }
+  }
+
+  return NextResponse.json({
+    upserted: data?.length || 0,
+    skipped,
+    enriched,
+    flights: data,
+  });
 }
