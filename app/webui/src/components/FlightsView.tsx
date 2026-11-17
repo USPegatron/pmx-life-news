@@ -714,6 +714,20 @@ export function FlightsView({ language }: { language: Language }) {
           </svg>
           <span>{ui.flightImportToggle}</span>
         </button>
+
+        {/* History link */}
+        <a
+          href="/history"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium
+            bg-white border border-border rounded-lg
+            text-ink-light hover:text-accent hover:border-accent/50
+            transition-all duration-200 shrink-0"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>歷史紀錄</span>
+        </a>
       </div>
 
       {/* Import panel (collapsed by default) */}
@@ -1112,6 +1126,16 @@ function CompactFlightCard({
             </span>
           )}
         </div>
+        {/* Status icon: 🏢 landed (flashing) / ✈️ in transit — aligned right with 更新 */}
+        {flight.actual_arr && new Date(flight.actual_arr).getTime() <= now ? (
+          <span className="text-lg leading-none animate-pulse shrink-0" title={language === "zh" ? "已降落" : "Landed"}>
+            🏢
+          </span>
+        ) : flight.actual_dep ? (
+          <span className="text-lg leading-none shrink-0" title={language === "zh" ? "飛行中" : "In transit"}>
+            ✈️
+          </span>
+        ) : null}
         {/* Update button — small, opens the existing modal that lets the user
             edit scheduled_dep/arr and actual_dep/arr side-by-side. */}
         <button
@@ -1187,16 +1211,6 @@ function CompactFlightCard({
               notYetLabel={notYetArrLabel}
               language={language}
             />
-            {/* Status icon: 🏢 landed (actual_arr <= now) / ✈️ in transit (actual_dep set) */}
-            {flight.actual_arr && new Date(flight.actual_arr).getTime() <= now ? (
-              <span className="text-xs leading-none" title={language === "zh" ? "已降落" : "Landed"}>
-                🏢
-              </span>
-            ) : flight.actual_dep ? (
-              <span className="text-xs leading-none" title={language === "zh" ? "飛行中" : "In transit"}>
-                ✈️
-              </span>
-            ) : null}
           </span>
         </div>
       </div>
