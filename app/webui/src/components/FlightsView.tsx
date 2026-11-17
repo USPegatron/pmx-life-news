@@ -64,6 +64,14 @@ const AIRPORT_TZ: Record<string, string> = {
   EWR: "America/New_York",
   IAH: "America/Chicago",
   MIA: "America/New_York",
+  DAL: "America/Chicago",
+  AUS: "America/Chicago",
+  HOU: "America/Chicago",
+  MSP: "America/Chicago",
+  BNA: "America/Chicago",
+  SLC: "America/Denver",
+  ABQ: "America/Denver",
+  TUL: "America/Chicago",
 };
 
 /** "HH:mm" in the airport's local timezone (falls back to UTC for unknown airports). */
