@@ -368,7 +368,7 @@ export function FlightsView({ language }: { language: Language }) {
 
   const applyPreset = (kind: "onTime" | "delay20" | "delay60" | "cancel") => {
     const sched = form.scheduled_arr
-      ? localInputToIso(form.scheduled_arr)
+      ? localInputToIso(form.scheduled_arr, editing?.scheduled_arr)
       : editing?.scheduled_arr ?? null;
 
     if (kind === "cancel") {
@@ -393,19 +393,19 @@ export function FlightsView({ language }: { language: Language }) {
     const body: Record<string, unknown> = {};
     if (form.status && form.status !== editing.status) body.status = form.status;
     {
-      const v = localInputToIso(form.scheduled_dep);
+      const v = localInputToIso(form.scheduled_dep, editing.scheduled_dep);
       if (v !== editing.scheduled_dep) body.scheduled_dep = v;
     }
     {
-      const v = localInputToIso(form.scheduled_arr);
+      const v = localInputToIso(form.scheduled_arr, editing.scheduled_arr);
       if (v !== editing.scheduled_arr) body.scheduled_arr = v;
     }
     {
-      const v = localInputToIso(form.actual_dep);
+      const v = localInputToIso(form.actual_dep, editing.actual_dep);
       if (v !== editing.actual_dep) body.actual_dep = v;
     }
     {
-      const v = localInputToIso(form.actual_arr);
+      const v = localInputToIso(form.actual_arr, editing.actual_arr);
       if (v !== editing.actual_arr) body.actual_arr = v;
     }
     {
