@@ -105,6 +105,30 @@ export function formatFullDate(dateStr: string | null, lang: Language): string {
 }
 
 /**
+ * Fallback landscape photos for items without an image. El Paso / Juárez
+ * skylines from Wikimedia Commons (CC-licensed; hotlinkable from browser).
+ */
+export const FALLBACK_LANDSCAPES: string[] = [
+  "https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/El_Paso_skyline.jpg/960px-El_Paso_skyline.jpg",
+  "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Downtown_El_Paso_Skyline.jpg/960px-Downtown_El_Paso_Skyline.jpg",
+  "https://upload.wikimedia.org/wikipedia/commons/thumb/b/be/El_Paso_Cityscape_%28cropped%29.jpg/960px-El_Paso_Cityscape_%28cropped%29.jpg",
+  "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/El_Paso_Franklin_Mountains_and_Scenic_Drive_aerial.jpg/960px-El_Paso_Franklin_Mountains_and_Scenic_Drive_aerial.jpg",
+  "https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/Ciudad_Ju%C3%A1rez%2C_skyline.jpg/960px-Ciudad_Ju%C3%A1rez%2C_skyline.jpg",
+  "https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/Ciudad_Ju%C3%A1rez_Skyline_%28Misiones%29.jpg/960px-Ciudad_Ju%C3%A1rez_Skyline_%28Misiones%29.jpg",
+  "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Ciudad_Ju%C3%A1rez_Skyline_%28Paseo_Triunfo%29.jpg/960px-Ciudad_Ju%C3%A1rez_Skyline_%28Paseo_Triunfo%29.jpg",
+  "https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Skyline_Ju%C3%A1rez-El_Paso.jpg/960px-Skyline_Ju%C3%A1rez-El_Paso.jpg",
+];
+
+/** Stable pseudo-random pick of a fallback landscape for a given seed. */
+export function getFallbackLandscape(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = (Math.imul(h, 31) + seed.charCodeAt(i)) >>> 0;
+  }
+  return FALLBACK_LANDSCAPES[h % FALLBACK_LANDSCAPES.length];
+}
+
+/**
  * Get localized UI strings
  */
 export function getUIStrings(lang: Language) {
@@ -219,6 +243,14 @@ export function getUIStrings(lang: Language) {
       lang === "zh" ? "時間" : lang === "es" ? "Tiempo" : "Time",
     tapToChange:
       lang === "zh" ? "輕觸切換" : lang === "es" ? "toque para cambiar" : "tap to change",
+
+    // Fallback image (news item has no photo of its own)
+    notNewsPhotoLabel:
+      lang === "zh"
+        ? "非新聞照片"
+        : lang === "es"
+        ? "No es foto de la noticia"
+        : "Not a news photo",
   };
 }
 

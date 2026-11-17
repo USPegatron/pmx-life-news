@@ -18,6 +18,7 @@ import {
   getUIStrings,
   detectInitialLanguage,
   filterNewsItems,
+  getFallbackLandscape,
 } from "@/lib/utils";
 
 const REFRESH_INTERVAL = 10 * 60 * 1000; // 10 minutes
@@ -429,6 +430,18 @@ function NewsRow({
 
   const [imageError, setImageError] = useState(false);
 
+  // Thumbnail source: prefer item.image_url; when the item has neither
+  // image_url nor image_urls, show a local El Paso / Juárez landscape so the
+  // row still has a picture (labeled "not a news photo" via the badge below).
+  const hasOwnImageUrl = !!item.image_url;
+  const hasImageUrls = (item.image_urls?.length ?? 0) > 0;
+  const showFallback = !hasOwnImageUrl && !hasImageUrls;
+  const thumbnailSrc = hasOwnImageUrl
+    ? item.image_url
+    : showFallback
+    ? getFallbackLandscape(item.id)
+    : null;
+
   const animationClass = delay > 0 ? `fade-in fade-in-delay-${Math.min(delay, 6)}` : "";
 
   return (
@@ -453,9 +466,9 @@ function NewsRow({
     >
       {/* Thumbnail (left) */}
       <div className="w-24 sm:w-60 shrink-0 relative aspect-[16/10] bg-ink/5">
-        {item.image_url && !imageError ? (
+        {thumbnailSrc && !imageError ? (
           <img
-            src={item.image_url}
+            src={thumbnailSrc}
             alt=""
             loading="lazy"
             onError={() => setImageError(true)}
@@ -490,6 +503,13 @@ function NewsRow({
               )}
             </svg>
           </div>
+        )}
+
+        {/* "Not a news photo" badge — only when showing a fallback landscape */}
+        {showFallback && !imageError && (
+          <span className="absolute top-2 right-2 sm:top-3 sm:right-3 px-2 py-0.5 text-[10px] sm:text-xs font-medium rounded bg-black/60 text-white pointer-events-none">
+            {ui.notNewsPhotoLabel}
+          </span>
         )}
 
         {/* Topic badge */}
@@ -594,14 +614,20 @@ function ArticleOverlay({
       ? { loading: "Traduciendo…", failed: "Error de traducción", link: "Abrir original", zoomIn: "Acercar", zoomOut: "Alejar", reset: "Restablecer", close: "Cerrar", viewImage: "Ver imagen" }
       : { loading: "Translating…", failed: "Translation failed", link: "Open original", zoomIn: "Zoom in", zoomOut: "Zoom out", reset: "Reset", close: "Close", viewImage: "View image" };
 
-  // Resolve image list: prefer the full list; fall back to single image_url
-  const imageList: string[] = (() => {
+  // Resolve image list: prefer the full list; fall back to single image_url;
+  // if neither exists, show a local El Paso / Juárez landscape so the carousel
+  // still has something to display — labeled "not a news photo" via the badge.
+  const realImageList: string[] = (() => {
     if (Array.isArray(item.image_urls) && item.image_urls.length > 0) {
       return item.image_urls;
     }
     if (item.image_url) return [item.image_url];
     return [];
   })();
+  const isFallbackImage = realImageList.length === 0;
+  const imageList: string[] = isFallbackImage
+    ? [getFallbackLandscape(item.id)]
+    : realImageList;
 
   const isBorder = item.topic === "border";
 
@@ -726,15 +752,16 @@ function ArticleOverlay({
           </div>
         </div>
 
-        {/* Image carousel (~35vh desktop / ~30vh mobile) */}
-        {imageList.length > 0 && (
-          <ImageCarousel
-            images={imageList}
-            altFallback={content.title}
-            viewImageLabel={labels.viewImage}
-            onImageTap={(src) => setLightboxSrc(src)}
-          />
-        )}
+        {/* Image carousel (~35vh desktop / ~30vh mobile). Always rendered —
+            when the item has no real images, the carousel uses a local El Paso
+            / Juárez landscape and surfaces the "not a news photo" badge. */}
+        <ImageCarousel
+          images={imageList}
+          altFallback={content.title}
+          viewImageLabel={labels.viewImage}
+          notNewsPhotoLabel={isFallbackImage ? ui.notNewsPhotoLabel : undefined}
+          onImageTap={(src) => setLightboxSrc(src)}
+        />
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5">
@@ -847,12 +874,15 @@ function ImageCarousel({
   images,
   altFallback,
   viewImageLabel,
+  notNewsPhotoLabel,
   onImageTap,
 }: {
   images: string[];
   altFallback: string;
   viewImageLabel: string;
   onImageTap: (src: string) => void;
+  /** When set, shows a "not a news photo" badge — used for fallback images. */
+  notNewsPhotoLabel?: string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeIdx, setActiveIdx] = useState(0);
@@ -875,7 +905,12 @@ function ImageCarousel({
   };
 
   return (
-    <div className="bg-black/5 flex-shrink-0">
+    <div className="relative bg-black/5 flex-shrink-0">
+      {notNewsPhotoLabel && (
+        <span className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10 px-2 py-0.5 text-[10px] sm:text-xs font-medium rounded bg-black/60 text-white pointer-events-none">
+          {notNewsPhotoLabel}
+        </span>
+      )}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
