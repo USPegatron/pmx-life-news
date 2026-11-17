@@ -618,19 +618,19 @@ export const FlightsView = forwardRef(function FlightsView(
     left.sort((a, b) => {
       const at = a.scheduled_dep
         ? new Date(a.scheduled_dep).getTime()
-        : Number.POSITIVE_INFINITY;
+        : new Date(a.flight_date + "T00:00:00Z").getTime();
       const bt = b.scheduled_dep
         ? new Date(b.scheduled_dep).getTime()
-        : Number.POSITIVE_INFINITY;
+        : new Date(b.flight_date + "T00:00:00Z").getTime();
       return at - bt;
     });
     right.sort((a, b) => {
       const at = a.scheduled_arr
         ? new Date(a.scheduled_arr).getTime()
-        : Number.POSITIVE_INFINITY;
+        : new Date(a.flight_date + "T00:00:00Z").getTime();
       const bt = b.scheduled_arr
         ? new Date(b.scheduled_arr).getTime()
-        : Number.POSITIVE_INFINITY;
+        : new Date(b.flight_date + "T00:00:00Z").getTime();
       return at - bt;
     });
     return { leftFlights: left, rightFlights: right };
