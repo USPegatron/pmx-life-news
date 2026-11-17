@@ -1149,64 +1149,62 @@ function CompactFlightCard({
           the single entry point for editing both times. */}
       <div className="grid grid-cols-2 mt-2 min-w-0">
         {/* Dep side: centered in left half */}
-        <div className="flex items-baseline justify-center gap-x-1.5 min-w-0 overflow-hidden">
-          <span className="text-sm font-semibold tracking-wide text-ink uppercase shrink-0 leading-none">
-            {flight.dep_airport}
+        <div className="text-center min-w-0">
+          <span className="inline-flex items-baseline gap-x-1.5">
+            <span className="text-sm font-semibold tracking-wide text-ink uppercase leading-none">
+              {flight.dep_airport}
+            </span>
+            <span className="text-[10px] text-ink-light tabular-nums leading-none" title="Departure date">
+              {fmtDate(flight.scheduled_dep) || "—"}
+            </span>
+            <span className="text-base font-display font-semibold text-ink tabular-nums leading-none">
+              {fmtClock(flight.scheduled_dep, flight.dep_airport) || "—"}
+            </span>
+            <span className="text-ink-light/50 text-xs leading-none" aria-hidden="true">
+              →
+            </span>
+            <ActualTime
+              scheduledIso={flight.scheduled_dep}
+              actualIso={flight.actual_dep}
+              airportCode={flight.dep_airport}
+              notYetLabel={notYetDepLabel}
+              language={language}
+            />
           </span>
-          <span className="text-[10px] text-ink-light tabular-nums shrink-0 leading-none" title="Departure date">
-            {fmtDate(flight.scheduled_dep) || "—"}
-          </span>
-          <span className="text-base font-display font-semibold text-ink tabular-nums shrink-0 leading-none">
-            {fmtClock(flight.scheduled_dep, flight.dep_airport) || "—"}
-          </span>
-          <span
-            className="text-ink-light/50 text-xs shrink-0 leading-none"
-            aria-hidden="true"
-          >
-            →
-          </span>
-          <ActualTime
-            scheduledIso={flight.scheduled_dep}
-            actualIso={flight.actual_dep}
-            airportCode={flight.dep_airport}
-            notYetLabel={notYetDepLabel}
-            language={language}
-          />
         </div>
         {/* Arr side: centered in right half + status icon */}
-        <div className="flex items-baseline justify-center gap-x-1.5 min-w-0 overflow-hidden">
-          <span className="text-sm font-semibold tracking-wide text-ink uppercase shrink-0 leading-none">
-            {flight.arr_airport}
-          </span>
-          <span className="text-[10px] text-ink-light tabular-nums shrink-0 leading-none" title="Arrival date">
-            {fmtDate(flight.scheduled_arr) || "—"}
-          </span>
-          <span className="text-base font-display font-semibold text-ink tabular-nums shrink-0 leading-none">
-            {fmtClock(flight.scheduled_arr, flight.arr_airport) || "—"}
-          </span>
-          <span
-            className="text-ink-light/50 text-xs shrink-0 leading-none"
-            aria-hidden="true"
-          >
-            →
-          </span>
-          <ActualTime
-            scheduledIso={flight.scheduled_arr}
-            actualIso={flight.actual_arr}
-            airportCode={flight.arr_airport}
-            notYetLabel={notYetArrLabel}
-            language={language}
-          />
-          {/* Status icon: ✈️ in transit / 🏢 landed */}
-          {flight.actual_arr ? (
-            <span className="text-xs shrink-0 leading-none" title={language === "zh" ? "已降落" : "Landed"}>
-              🏢
+        <div className="text-center min-w-0">
+          <span className="inline-flex items-baseline gap-x-1.5">
+            <span className="text-sm font-semibold tracking-wide text-ink uppercase leading-none">
+              {flight.arr_airport}
             </span>
-          ) : now >= depMs ? (
-            <span className="text-xs shrink-0 leading-none" title={language === "zh" ? "飛行中" : "In transit"}>
-              ✈️
+            <span className="text-[10px] text-ink-light tabular-nums leading-none" title="Arrival date">
+              {fmtDate(flight.scheduled_arr) || "—"}
             </span>
-          ) : null}
+            <span className="text-base font-display font-semibold text-ink tabular-nums leading-none">
+              {fmtClock(flight.scheduled_arr, flight.arr_airport) || "—"}
+            </span>
+            <span className="text-ink-light/50 text-xs leading-none" aria-hidden="true">
+              →
+            </span>
+            <ActualTime
+              scheduledIso={flight.scheduled_arr}
+              actualIso={flight.actual_arr}
+              airportCode={flight.arr_airport}
+              notYetLabel={notYetArrLabel}
+              language={language}
+            />
+            {/* Status icon: 🏢 landed (actual_arr <= now) / ✈️ in transit */}
+            {flight.actual_arr && new Date(flight.actual_arr).getTime() <= now ? (
+              <span className="text-xs leading-none" title={language === "zh" ? "已降落" : "Landed"}>
+                🏢
+              </span>
+            ) : now >= depMs ? (
+              <span className="text-xs leading-none" title={language === "zh" ? "飛行中" : "In transit"}>
+                ✈️
+              </span>
+            ) : null}
+          </span>
         </div>
       </div>
     </div>
