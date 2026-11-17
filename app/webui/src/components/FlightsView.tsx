@@ -15,6 +15,7 @@ import {
   flightArrLight,
   flightTrafficLight,
   flightTrafficLightClass,
+  getAirlineName,
   type FlightTrafficLight,
 } from "@/lib/utils";
 
@@ -113,6 +114,7 @@ export function FlightsView({ language }: { language: Language }) {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isRefreshingAll, setIsRefreshingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<Range>("7d");
 
@@ -213,6 +215,41 @@ export function FlightsView({ language }: { language: Language }) {
 
   const handleRefresh = () => {
     fetchFlights(true);
+  };
+
+  // One-shot full refresh: server runs the check for every tracked flight
+  // and reports how many were checked / skipped / archived.
+  const handleRefreshAll = async () => {
+    if (isRefreshingAll) return;
+    setIsRefreshingAll(true);
+    try {
+      const res = await fetch("/api/flights/check-now", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error || `HTTP ${res.status}`);
+      }
+      const checked = Number(json.checked) || 0;
+      const skipped = Number(json.skipped) || 0;
+      const archived = Number(json.archived) || 0;
+      const errors = Array.isArray(json.errors) ? json.errors.length : 0;
+      const errSuffix = errors ? (language === "zh" ? `，錯誤 ${errors}` : language === "es" ? `, errores ${errors}` : `, errors ${errors}`) : "";
+      const msg =
+        language === "zh"
+          ? `已檢查 ${checked} 筆，略過 ${skipped}，已備份 ${archived}${errSuffix}`
+          : language === "es"
+          ? `Verificados ${checked}, omitidos ${skipped}, archivados ${archived}${errSuffix}`
+          : `Checked ${checked}, skipped ${skipped}, archived ${archived}${errSuffix}`;
+      showToast("success", msg);
+      await fetchFlights(true);
+    } catch (err) {
+      const m = err instanceof Error ? err.message : "Unknown error";
+      showToast("error", m);
+    } finally {
+      setIsRefreshingAll(false);
+    }
   };
 
   const handleImport = async () => {
@@ -517,6 +554,36 @@ export function FlightsView({ language }: { language: Language }) {
               d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
             />
           </svg>
+        </button>
+
+        {/* "Refresh all" — triggers POST /api/flights/check-now on the server,
+            which iterates every tracked flight and reports a result summary. */}
+        <button
+          onClick={handleRefreshAll}
+          disabled={isRefreshingAll}
+          aria-label={ui.flightRefreshAll}
+          title={ui.flightRefreshAll}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium
+            bg-white border border-border rounded-lg
+            text-ink-light hover:text-accent hover:border-accent/50
+            transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
+            shrink-0"
+        >
+          <svg
+            className={`w-4 h-4 ${isRefreshingAll ? "spin" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
+          </svg>
+          <span>{ui.flightRefreshAll}</span>
         </button>
 
         <button
@@ -852,9 +919,17 @@ function CompactFlightCard({
 
   return (
     <div className="group bg-white border border-border rounded-md px-3 py-1.5 transition-colors duration-200 hover:border-accent/40">
-      {flight.airline_name && (
+      {/* Flight date — prominent on its own line above the row. Formatted per
+          locale via ui.flightDateLabel (zh: 2026-11-16 / en: 11/16 / es: 16/11/2026). */}
+      <div className="font-display font-semibold text-base text-ink tracking-tight leading-tight mb-1 tabular-nums">
+        {ui.flightDateLabel(flight.flight_date)}
+      </div>
+      {/* Airline name — DB value preferred, IATA lookup as fallback so the
+          user always sees a real name (e.g. "Southwest Airlines") instead of
+          just the IATA code. */}
+      {(flight.airline_name?.trim() || getAirlineName(flight.airline_code)) && (
         <div className="text-[10px] leading-tight text-ink-light truncate mb-0.5">
-          {flight.airline_name}
+          {flight.airline_name?.trim() || getAirlineName(flight.airline_code)}
         </div>
       )}
       <div className="flex items-center gap-2 min-w-0">

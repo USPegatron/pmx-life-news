@@ -128,6 +128,36 @@ export function getFallbackLandscape(seed: string): string {
   return FALLBACK_LANDSCAPES[h % FALLBACK_LANDSCAPES.length];
 }
 
+/** IATA airline code -> full airline name. Used as fallback when DB airline_name is null. */
+export const AIRLINE_NAMES: Record<string, string> = {
+  AA: "American Airlines", AC: "Air Canada", AF: "Air France", AM: "Aeromexico",
+  AR: "Aerolineas Argentinas", AS: "Alaska Airlines", AY: "Finnair",
+  BA: "British Airways", BR: "EVA Air", CA: "Air China",
+  CI: "China Airlines", CM: "Copa Airlines", CX: "Cathay Pacific",
+  DL: "Delta Air Lines", EI: "Aer Lingus", EK: "Emirates",
+  ET: "Ethiopian Airlines", F9: "Frontier Airlines", FI: "Icelandair",
+  GA: "Garuda Indonesia", HA: "Hawaiian Airlines", IB: "Iberia",
+  JL: "Japan Airlines", KLM: "KLM", KE: "Korean Air",
+  LA: "LATAM Airlines", LH: "Lufthansa", LO: "LOT Polish Airlines",
+  MU: "China Eastern", NH: "All Nippon Airways", NK: "Spirit Airlines",
+  NZ: "Air New Zealand", OA: "Olympic Air", OS: "Austrian Airlines",
+  OZ: "Asiana Airlines", PR: "Philippine Airlines", QF: "Qantas",
+  QR: "Qatar Airways", SA: "South African Airways", SK: "SAS",
+  SN: "Brussels Airlines", SQ: "Singapore Airlines", SU: "Aeroflot",
+  SV: "Saudia", SW: "SkyWest", TG: "Thai Airways",
+  TK: "Turkish Airlines", UA: "United Airlines", UL: "SriLankan Airlines",
+  US: "US Airways", VA: "Virgin Australia", VS: "Virgin Atlantic",
+  VN: "Vietnam Airlines", WN: "Southwest Airlines", XE: "JSX",
+  Y4: "Volaris", YW: "Air Creebec", ZI: "Aigle Azur",
+  // Add more as needed; ~80 common airlines is enough for a prototype.
+};
+
+/** Return the full airline name for an IATA code; falls back to the code itself if unknown. */
+export function getAirlineName(code: string | null | undefined): string {
+  if (!code) return "";
+  return AIRLINE_NAMES[code.trim().toUpperCase()] || code.trim().toUpperCase();
+}
+
 /**
  * Get localized UI strings
  */
@@ -441,6 +471,19 @@ export function getUIStrings(lang: Language) {
         : "Unable to load flights",
     flightFlight: (ref: string) =>
       lang === "zh" ? `航班 ${ref}` : lang === "es" ? `Vuelo ${ref}` : `Flight ${ref}`,
+
+    flightDateLabel: (dateStr: string) => {
+      // Expecting "YYYY-MM-DD"; fall back gracefully if shape is off.
+      if (!dateStr) return "";
+      const parts = dateStr.split("-");
+      if (parts.length !== 3) return dateStr;
+      const [y, m, d] = parts;
+      if (lang === "zh") return `${y}-${m}-${d}`; // 2026-11-16
+      if (lang === "es") return `${d}/${m}/${y}`; // 16/11/2026
+      return `${Number(m)}/${Number(d)}`; // 11/16 (M/D)
+    },
+    flightRefreshAll:
+      lang === "zh" ? "更新全部" : lang === "es" ? "Actualizar todo" : "Refresh all",
 
     // -------- Tab switcher --------
     tabNews:
