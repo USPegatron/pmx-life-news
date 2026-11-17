@@ -197,64 +197,140 @@ export default function Home() {
 
   return (
     <main className="min-h-screen">
-      {/* Sticky Control Bar - Fixed at top, exactly 2 rows on mobile */}
-      <header className="sticky top-0 z-50 bg-paper/95 backdrop-blur-sm border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          {/* Row 1: Cycling controls + Refresh (mobile: 4 compact buttons side-by-side) */}
-          <div className="flex items-center gap-2">
-            {/* Language cycling button */}
+      {/* Sticky Control Bar — single row on desktop, two rows on mobile. All four
+          marks (title, search, tabs, cycling) freeze together while scrolling. */}
+      <header className="sticky top-0 z-50 bg-paper/95 backdrop-blur-sm border-b border-border no-print">
+        {/* Desktop (sm+): one row — [Title] [Search] [Tabs] [Cycling] */}
+        <div className="hidden sm:flex items-center gap-2 sm:gap-3 max-w-7xl mx-auto px-3 sm:px-6 py-2">
+          {/* Mark 1 — Title (LEFT, freezes with header) */}
+          <div className="flex-shrink-0 min-w-0">
+            <h1 className="text-base font-display font-semibold text-ink tracking-tight truncate">
+              {view === "news" ? ui.hubName : ui.flightHubTitle}
+            </h1>
+          </div>
+
+          {/* Search (news only) — flex-1 takes the leftover width */}
+          {view === "news" && (
+            <div className="flex-1 min-w-0 max-w-md">
+              <div className="relative">
+                <svg
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-light pointer-events-none"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={
+                    language === "zh"
+                      ? "搜尋…"
+                      : language === "es"
+                      ? "Buscar…"
+                      : "Search…"
+                  }
+                  className="w-full pl-8 pr-3 py-1.5 text-sm bg-white border border-border rounded-lg
+                    text-ink placeholder-ink-light
+                    focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent
+                    transition-all duration-200"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Mark 2 — Tabs (News | Flights) */}
+          <div className="flex-shrink-0 flex items-center gap-1" role="tablist" aria-label="view">
+            <button
+              role="tab"
+              aria-selected={view === "news"}
+              onClick={() => setView("news")}
+              className={`px-2 py-1 text-xs font-medium rounded-lg transition-all duration-200 touch-target inline-flex items-center justify-center gap-1 ${
+                view === "news"
+                  ? "bg-white text-ink border border-border shadow-sm"
+                  : "bg-transparent text-ink-light hover:text-ink border border-transparent"
+              }`}
+            >
+              <span aria-hidden="true">📰</span>
+              <span>{ui.tabNews}</span>
+            </button>
+            <button
+              role="tab"
+              aria-selected={view === "flights"}
+              onClick={() => setView("flights")}
+              className={`px-2 py-1 text-xs font-medium rounded-lg transition-all duration-200 touch-target inline-flex items-center justify-center gap-1 ${
+                view === "flights"
+                  ? "bg-white text-ink border border-border shadow-sm"
+                  : "bg-transparent text-ink-light hover:text-ink border border-transparent"
+              }`}
+            >
+              <span aria-hidden="true">✈️</span>
+              <span>{ui.tabFlights}</span>
+            </button>
+          </div>
+
+          {/* Mark 3 — Cycling controls [Language | Topic | Time | Refresh] (RIGHT) */}
+          <div className="flex-shrink-0 flex items-center gap-1">
+            {/* Language — stacked icon + label, compact */}
             <button
               onClick={cycleLanguage}
-              className="flex-1 sm:flex-none sm:min-w-[96px] flex flex-col items-center justify-center gap-1 px-2 py-2 text-xs sm:text-sm font-medium
+              className="flex flex-col items-center justify-center gap-0.5 px-1.5 py-1 text-[10px] font-medium leading-none
                 bg-white border border-border rounded-lg text-ink
                 hover:border-accent/50 hover:text-accent
                 transition-all duration-200 touch-target"
               aria-label={`${ui.languageLabel}: ${getCurrentLanguageLabel()} — ${ui.tapToChange}`}
             >
-              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 21a9 9 0 100-18 9 9 0 000 18z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.6 9h16.8M3.6 15h16.8" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3c2.5 2.4 4 5.7 4 9s-1.5 6.6-4 9c-2.5-2.4-4-5.7-4-9s1.5-6.6 4-9z" />
               </svg>
-              <span>{getCurrentLanguageLabel()}</span>
+              <span className="truncate">{getCurrentLanguageLabel()}</span>
             </button>
 
-            {/* Topic cycling button */}
+            {/* Topic */}
             <button
               onClick={cycleTopic}
-              className="flex-1 sm:flex-none sm:min-w-[96px] flex flex-col items-center justify-center gap-1 px-2 py-2 text-xs sm:text-sm font-medium
+              className="flex flex-col items-center justify-center gap-0.5 px-1.5 py-1 text-[10px] font-medium leading-none
                 bg-white border border-border rounded-lg text-ink
                 hover:border-accent/50 hover:text-accent
                 transition-all duration-200 touch-target"
               aria-label={`${ui.topicFilterLabel}: ${getCurrentTopicLabel()} — ${ui.tapToChange}`}
             >
-              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.83z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01" />
               </svg>
-              <span>{getCurrentTopicLabel()}</span>
+              <span className="truncate">{getCurrentTopicLabel()}</span>
             </button>
 
-            {/* Time cycling button */}
+            {/* Time */}
             <button
               onClick={cycleTime}
-              className="flex-1 sm:flex-none sm:min-w-[96px] flex flex-col items-center justify-center gap-1 px-2 py-2 text-xs sm:text-sm font-medium
+              className="flex flex-col items-center justify-center gap-0.5 px-1.5 py-1 text-[10px] font-medium leading-none
                 bg-white border border-border rounded-lg text-ink
                 hover:border-accent/50 hover:text-accent
                 transition-all duration-200 touch-target"
               aria-label={`${ui.timeFilterLabel}: ${getCurrentTimeLabel()} — ${ui.tapToChange}`}
             >
-              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span>{getCurrentTimeLabel()}</span>
+              <span className="truncate">{getCurrentTimeLabel()}</span>
             </button>
 
-            {/* Refresh button */}
+            {/* Refresh — icon-only */}
             <button
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="flex-shrink-0 inline-flex items-center justify-center px-3 py-2.5 text-sm font-medium
+              className="flex-shrink-0 inline-flex items-center justify-center px-1.5 py-1
                 bg-white border border-border rounded-lg
                 text-ink-light hover:text-accent hover:border-accent/50
                 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
@@ -276,13 +352,139 @@ export default function Home() {
               </svg>
             </button>
           </div>
+        </div>
 
-          {/* Row 2: Full-width search input (news only) */}
-          {view === "news" && (
-            <div className="mt-2 w-full no-print">
-              <div className="relative">
+        {/* Mobile (<sm): two compact rows
+            Row 1 — [Title (truncate)] [Tabs]
+            Row 2 — [Search (news only)] [Cycling buttons (icon + inline label)] */}
+        <div className="sm:hidden max-w-7xl mx-auto px-3">
+          <div className="flex items-center gap-2 pt-2 pb-1.5">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-base font-display font-semibold text-ink tracking-tight truncate">
+                {view === "news" ? ui.hubName : ui.flightHubTitle}
+              </h1>
+            </div>
+            <div className="flex-shrink-0 flex items-center gap-1" role="tablist" aria-label="view">
+              <button
+                role="tab"
+                aria-selected={view === "news"}
+                onClick={() => setView("news")}
+                className={`px-2 py-1 text-xs font-medium rounded-lg transition-all duration-200 touch-target inline-flex items-center justify-center gap-1 ${
+                  view === "news"
+                    ? "bg-white text-ink border border-border shadow-sm"
+                    : "bg-transparent text-ink-light hover:text-ink border border-transparent"
+                }`}
+              >
+                <span aria-hidden="true">📰</span>
+                <span>{ui.tabNews}</span>
+              </button>
+              <button
+                role="tab"
+                aria-selected={view === "flights"}
+                onClick={() => setView("flights")}
+                className={`px-2 py-1 text-xs font-medium rounded-lg transition-all duration-200 touch-target inline-flex items-center justify-center gap-1 ${
+                  view === "flights"
+                    ? "bg-white text-ink border border-border shadow-sm"
+                    : "bg-transparent text-ink-light hover:text-ink border border-transparent"
+                }`}
+              >
+                <span aria-hidden="true">✈️</span>
+                <span>{ui.tabFlights}</span>
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 pb-2">
+            {view === "news" && (
+              <div className="flex-1 min-w-0">
+                <div className="relative">
+                  <svg
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-light pointer-events-none"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={
+                      language === "zh"
+                        ? "搜尋…"
+                        : language === "es"
+                        ? "Buscar…"
+                        : "Search…"
+                    }
+                    className="w-full pl-8 pr-3 py-1.5 text-sm bg-white border border-border rounded-lg
+                      text-ink placeholder-ink-light
+                      focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent
+                      transition-all duration-200"
+                  />
+                </div>
+              </div>
+            )}
+            {/* Cycling buttons — horizontal icon + inline label, very compact */}
+            <div className="flex-shrink-0 flex items-center gap-1">
+              <button
+                onClick={cycleLanguage}
+                className="flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium leading-none min-w-0
+                  bg-white border border-border rounded-lg text-ink
+                  hover:border-accent/50 hover:text-accent
+                  transition-all duration-200 touch-target"
+                aria-label={`${ui.languageLabel}: ${getCurrentLanguageLabel()} — ${ui.tapToChange}`}
+              >
+                <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 21a9 9 0 100-18 9 9 0 000 18z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.6 9h16.8M3.6 15h16.8" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3c2.5 2.4 4 5.7 4 9s-1.5 6.6-4 9c-2.5-2.4-4-5.7-4-9s1.5-6.6 4-9z" />
+                </svg>
+                <span className="truncate">{getCurrentLanguageLabel()}</span>
+              </button>
+              <button
+                onClick={cycleTopic}
+                className="flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium leading-none min-w-0
+                  bg-white border border-border rounded-lg text-ink
+                  hover:border-accent/50 hover:text-accent
+                  transition-all duration-200 touch-target"
+                aria-label={`${ui.topicFilterLabel}: ${getCurrentTopicLabel()} — ${ui.tapToChange}`}
+              >
+                <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.83z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01" />
+                </svg>
+                <span className="truncate">{getCurrentTopicLabel()}</span>
+              </button>
+              <button
+                onClick={cycleTime}
+                className="flex items-center gap-1 px-1.5 py-1 text-[11px] font-medium leading-none min-w-0
+                  bg-white border border-border rounded-lg text-ink
+                  hover:border-accent/50 hover:text-accent
+                  transition-all duration-200 touch-target"
+                aria-label={`${ui.timeFilterLabel}: ${getCurrentTimeLabel()} — ${ui.tapToChange}`}
+              >
+                <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="truncate">{getCurrentTimeLabel()}</span>
+              </button>
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="flex-shrink-0 inline-flex items-center justify-center px-1.5 py-1
+                  bg-white border border-border rounded-lg
+                  text-ink-light hover:text-accent hover:border-accent/50
+                  transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
+                  touch-target no-print"
+                aria-label={`${ui.refreshLabel}${lastFetched && !isRefreshing ? ` (${formatRelativeTime(lastFetched.toISOString(), language)})` : ""}`}
+              >
                 <svg
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-light"
+                  className={`w-3.5 h-3.5 ${isRefreshing ? "spin" : ""}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -291,79 +493,14 @@ export default function Home() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                   />
                 </svg>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={ui.searchPlaceholder}
-                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-border rounded-lg
-                    text-ink placeholder-ink-light
-                    focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent
-                    transition-all duration-200"
-                />
-              </div>
+              </button>
             </div>
-          )}
-
-          {/* Row 3: Tab switcher (News | Flights) */}
-          <div className="mt-2 flex items-center gap-2 no-print" role="tablist" aria-label="view">
-            <button
-              role="tab"
-              aria-selected={view === "news"}
-              onClick={() => setView("news")}
-              className={`flex-1 sm:flex-none px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 touch-target inline-flex items-center justify-center gap-1.5 ${
-                view === "news"
-                  ? "bg-white text-ink border border-border shadow-sm"
-                  : "bg-transparent text-ink-light hover:text-ink border border-transparent"
-              }`}
-            >
-              <span aria-hidden="true">📰</span>
-              <span>{ui.tabNews}</span>
-            </button>
-            <button
-              role="tab"
-              aria-selected={view === "flights"}
-              onClick={() => setView("flights")}
-              className={`flex-1 sm:flex-none px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 touch-target inline-flex items-center justify-center gap-1.5 ${
-                view === "flights"
-                  ? "bg-white text-ink border border-border shadow-sm"
-                  : "bg-transparent text-ink-light hover:text-ink border border-transparent"
-              }`}
-            >
-              <span aria-hidden="true">✈️</span>
-              <span>{ui.tabFlights}</span>
-            </button>
           </div>
         </div>
       </header>
-
-      {/* Hub Title Bar (scrolls away) */}
-      <div className="bg-paper border-b border-border no-print">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          {view === "news" ? (
-            <>
-              <h1 className="text-2xl sm:text-3xl font-display font-semibold text-ink tracking-tight">
-                {ui.hubName}
-              </h1>
-              <p className="text-sm text-ink-light mt-0.5 font-body">
-                {ui.hubSubtitle}
-              </p>
-            </>
-          ) : (
-            <>
-              <h1 className="text-2xl sm:text-3xl font-display font-semibold text-ink tracking-tight">
-                {ui.flightHubTitle}
-              </h1>
-              <p className="text-sm text-ink-light mt-0.5 font-body">
-                {ui.flightHubSubtitle}
-              </p>
-            </>
-          )}
-        </div>
-      </div>
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
