@@ -26,8 +26,15 @@ const REFRESH_INTERVAL = 10 * 60 * 1000; // 10 minutes
 const FETCH_LIMIT = 300;
 
 // Columns for the list (content_* fetched lazily on demand via the API).
+// The carousel in ArticleOverlay reads item.image_urls; if that column does not
+// exist yet (user has not run schema_v3_images.sql), fetchNews falls back to
+// LIST_COLUMNS_FALLBACK so the news feed still loads (the carousel will just
+// show image_url as a single image instead of a multi-image carousel).
 const LIST_COLUMNS =
   "id,url_hash,url,topic,source,language_original,title_en,title_zh,title_es,summary_en,summary_zh,summary_es,image_url,image_urls,published_at,fetched_at,created_at";
+
+const LIST_COLUMNS_FALLBACK =
+  "id,url_hash,url,topic,source,language_original,title_en,title_zh,title_es,summary_en,summary_zh,summary_es,image_url,published_at,fetched_at,created_at";
 
 const MIN_SCALE = 1;
 const MAX_SCALE = 4;
@@ -64,15 +71,36 @@ export default function Home() {
     setError(null);
 
     try {
-      const { data, error: fetchError } = await supabase
+      let data: NewsItem[] = [];
+      let fetchError: { message?: string } | null = null;
+
+      const primary = await supabase
         .from("news_items")
         .select(LIST_COLUMNS)
         .order("published_at", { ascending: false })
         .limit(FETCH_LIMIT);
+      data = (primary.data as NewsItem[]) || [];
+      fetchError = primary.error as { message?: string } | null;
+
+      // Defensive: if the image_urls column hasn't been added yet (user has
+      // not run schema_v3_images.sql), the primary SELECT fails. Retry without
+      // that column so the news feed still loads.
+      if (fetchError && /image_urls/i.test(fetchError.message || "")) {
+        console.warn(
+          "news_items.image_urls column not found — falling back to legacy columns"
+        );
+        const fallback = await supabase
+          .from("news_items")
+          .select(LIST_COLUMNS_FALLBACK)
+          .order("published_at", { ascending: false })
+          .limit(FETCH_LIMIT);
+        data = (fallback.data as NewsItem[]) || [];
+        fetchError = fallback.error as { message?: string } | null;
+      }
 
       if (fetchError) throw fetchError;
 
-      setNewsItems((data as NewsItem[]) || []);
+      setNewsItems(data);
       setLastFetched(new Date());
     } catch (err) {
       console.error("Failed to fetch news:", err);
