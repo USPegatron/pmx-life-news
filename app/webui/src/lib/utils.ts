@@ -183,7 +183,6 @@ export const AIRCRAFT_NAMES: Record<string, string> = {
   B788: "Boeing 787-8", B789: "Boeing 787-9", B78X: "Boeing 787-10",
   B744: "Boeing 747-400", B748: "Boeing 747-8",
   // Boeing narrow + special
-  BC S1: "Boeing 747-SCA",
   // Embraer
   E170: "Embraer E170", E175: "Embraer E175", E190: "Embraer E190", E195: "Embraer E195",
   // Bombardier regional jets
