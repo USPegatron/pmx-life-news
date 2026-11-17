@@ -158,6 +158,50 @@ export function getAirlineName(code: string | null | undefined): string {
   return AIRLINE_NAMES[code.trim().toUpperCase()] || code.trim().toUpperCase();
 }
 
+/** ICAO aircraft typecode -> full aircraft model. Source: wikipedia + OpenSky docs. */
+export const AIRCRAFT_NAMES: Record<string, string> = {
+  // Airbus narrow-body
+  A318: "Airbus A318", A319: "Airbus A319", A320: "Airbus A320",
+  A20N: "Airbus A320neo", A321: "Airbus A321", A21N: "Airbus A321neo",
+  // Airbus wide-body
+  A330: "Airbus A330-300", A332: "Airbus A330-200", A333: "Airbus A330-300",
+  A337: "Airbus A330-700L", A339: "Airbus A330-900neo",
+  A340: "Airbus A340", A342: "Airbus A340-200", A343: "Airbus A340-300", A345: "Airbus A340-500", A346: "Airbus A340-600",
+  A350: "Airbus A350", A358: "Airbus A350-1000", A359: "Airbus A350-900",
+  A380: "Airbus A380", A388: "Airbus A380-800",
+  // Boeing narrow-body
+  B701: "Boeing 707-120", B703: "Boeing 707-300", B712: "Boeing 717-200",
+  B721: "Boeing 727-100", B722: "Boeing 727-200", B732: "Boeing 737-200",
+  B733: "Boeing 737-300", B734: "Boeing 737-400", B735: "Boeing 737-500",
+  B736: "Boeing 737-600", B737: "Boeing 737-700", B738: "Boeing 737-800",
+  B739: "Boeing 737-900", B38M: "Boeing 737 MAX 8", B39M: "Boeing 737 MAX 9",
+  B752: "Boeing 757-200", B753: "Boeing 757-300",
+  // Boeing wide-body
+  B762: "Boeing 767-200", B763: "Boeing 767-300", B764: "Boeing 767-400ER",
+  B772: "Boeing 777-200", B773: "Boeing 777-300", B77L: "Boeing 777-200LR",
+  B77W: "Boeing 777-300ER", B778: "Boeing 777-8", B779: "Boeing 777-9",
+  B788: "Boeing 787-8", B789: "Boeing 787-9", B78X: "Boeing 787-10",
+  B744: "Boeing 747-400", B748: "Boeing 747-8",
+  // Boeing narrow + special
+  BC S1: "Boeing 747-SCA",
+  // Embraer
+  E170: "Embraer E170", E175: "Embraer E175", E190: "Embraer E190", E195: "Embraer E195",
+  // Bombardier regional jets
+  CRJ1: "Bombardier CRJ-100", CRJ2: "Bombardier CRJ-200",
+  CRJ7: "Bombardier CRJ-700", CRJ9: "Bombardier CRJ-900",
+  // ATR turboprops
+  AT45: "ATR 42-500", AT46: "ATR 42-600", AT72: "ATR 72-200", AT75: "ATR 72-500", AT76: "ATR 72-600",
+  // Misc
+  DH8D: "De Havilland Dash 8 Q400",
+};
+
+/** Return the full aircraft model name for an ICAO typecode; falls back to the typecode if unknown. */
+export function getAircraftName(typecode: string | null | undefined): string {
+  if (!typecode) return "";
+  const k = typecode.trim().toUpperCase();
+  return AIRCRAFT_NAMES[k] || k;
+}
+
 /**
  * Get localized UI strings
  */
