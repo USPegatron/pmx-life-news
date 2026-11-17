@@ -1,39 +1,106 @@
-=== HANDOFF 2026-11-15（全功能上線）===
+=== HANDOFF 2026-11-17（PMX Border & Flight Hub 完整 prototype）===
 
-[目前狀態] 全部完成並上線
+[Live URLs]
 - 網站：https://pmx-life-news.vercel.app （Vercel Hobby；root dir = app/webui；Next.js 15）
-- Repo：github.com/USPegatron/pmx-life-news （public；main 為最新）
-- 資料庫：Supabase 專案 PMX-News（ref xahuxyrnyzaeosecziwz，us-east-1）；表 public.news_items；RLS 公開唯讀
-- 爬蟲：GitHub Actions「news-crawler」，cron 每整點；11 feeds → 去重 → 相關性過濾 → DeepL 翻譯 → 寫 Supabase
-- 目前資料約 55 筆（相關性過濾後，全部含 content_original 全文）
+- 航班追蹤頁：https://pmx-life-news.vercel.app/flights（點頁面下排的「✈️ 航班追蹤」切換）
+- Repo：github.com/USPegatron/pmx-life-news （public，main 為最新）
+- 資料庫：Supabase 專案 PMX-News（ref xahuxyrnyzaeosecziwz，us-east-1）
+  - public.news_items：新聞（55 筆，含 content_original 全文 + 三語標題摘要）
+  - public.flights_to_track：航班（目前空表，等員工出差資料上傳）
 
-[功能]
-- 三語：中(繁體)/英/西；中文一律繁體（DeepL target ZH-HANT，UI 標籤亦繁體）
-- 首頁：三語切換、搜尋、主題(邊境/航空)/時間過濾、卡片(含圖)
-- 點卡片 → 閱讀視窗：按需翻譯「當下語言」的完整全文並快取回 DB（同篇不重翻）
-  API：GET /api/translate?id=<uuid>&lang=zh|en|es（Vercel server route；需 DEEPL_API_KEY + SUPABASE_SERVICE_ROLE_KEY）
-- 相關性：只留 Juárez/El Paso 工作生活相關；航空只留與搭機/機場/航班相關；
-  運動/娛樂/名人/星座/彩券等雜訊用關鍵字排除；混合來源(KVIA 會轉載 CNN)需含在地訊號才留
-  規則在 app\crawler\filters.py：EXCLUDE_KEYWORDS / LOCAL_SOURCES / LOCAL_SIGNALS / AVIATION_RELEVANCE_KEYWORDS
+[功能 - 新聞]
+- 三語（繁中/英/西）；中文一律繁體（DeepL target ZH-HANT，UI 標籤亦繁體）
+- 首頁：三語切換、搜尋、主題（邊境/航空）/ 時間過濾、卡片（含圖，無圖自動放 El Paso/Juárez 風景照＋「非新聞照片」標籤）
+- 點卡片 → 閱讀視窗：
+  - 80vh 彈窗（桌面左圖右文 50/50，手機全螢幕）
+  - 多圖輪播（左右滑）、點圖 → 全螢幕燈箱（可縮放、平移）
+  - 翻譯全文 + 原文直接顯示在下方，**不切換 toggle**
+  - 自動翻譯透過 GET /api/translate?id=<uuid>&lang=zh|en|es，server route 帶 DEEPL_API_KEY + SUPABASE_SERVICE_ROLE_KEY，結果快取到 content_zh / content_es（第二次點開秒開、不重扣 DeepL）
+- 相關性過濾：`app\crawler\filters.py` 的 EXCLUDE_KEYWORDS（運動/娛樂/名人/星座/彩券）、LOCAL_SOURCES（純在地白名單）、LOCAL_SIGNALS（在地關鍵字）、AVIATION_RELEVANCE_KEYWORDS（僅航班問題/政策）
+
+[功能 - 航班追蹤]
+- 兩欄 UI：左 = 待出發、右 = 已出發（依起飛時間/抵達時間由近到遠排）
+- 卡片極簡：班號 + 航空公司名 + 機型 + 起飛/抵達時間 + 燈號 + 更新按鈕
+- 燈號：
+  - 左燈（起飛狀態）：空心 = 未出發；藍 = 提早 ≥15 分鐘出發；綠 = ±15 分鐘準點；黃 = Delay 15~30 分鐘；紅 = Delay ≥30 分鐘；黑（閃爍）= 取消
+  - 右燈（抵達狀態）：藍 = 提早 ≥15 分鐘抵達；綠 = ±15 分鐘準點；黃 = Delay 15~30；紅 = Delay ≥30；黑（閃爍）= 不會抵達（轉降/取消）
+- 匯入 CSV：可從 WebUI 直接貼文字（5 欄：日期/起飛機場/抵達機場/航班代號/航班數字；2 欄 optional：airline_name/aircraft_type；日期格式吃 ISO 與美式 M/D/YYYY）
+- WebUI 提供 Excel 範本下載 + 檔案上傳
+- 更新燈號：WebUI 點「更新」按鈕 → 選擇 status / 填時間 / 標記已備份 → PATCH 寫回 DB
+- 自動備份：航班抵達後 1 小時 daemon 自動標記 archived_at（下次抓取時不再顯示）
+
+[功能 - OpenSky 自動確認]
+- Python daemon 跑在員工 24x7 電腦（`app\flight_tracker\flight_tracker.py`）
+- 每 15 分鐘：撈「未出發/未到」的航班 → OpenSky Network bbox 查詢（起飛/抵達機場周圍）→ 匹配 callsign（例如 WN756 ↔ SWA756）
+- 匹配中 → 標記 departed/arrived；3 小時內不重查
+- 無法確認的航班**由人工 WebUI 補**（這是 prototype 的限制）
+
+[技術選擇理由（公司可參考）]
+- DeepL Free API：中文品質最佳，但 ToS 限 non-commercial；公司用應升級 Pro（≈ $0.18/月）
+- OpenSky Network：免費、即時、全球、無 API key；唯一缺點是無延誤分鐘
+- 全文翻譯：嘗試過 Gemini + Google Search grounding（要 billing）→ DuckDuckGo HTML scraping（被擋）→ AeroAPI $89/月 → 最終採按需 + DB 快取的免費方案
+- 持久 Git 憑證：%USERPROFILE%\.git-credentials + credential.helper=store；PortableGit 內建的 manager helper 已停用
+
+[部署 - 24x7 電腦]
+1. 安裝 Python 3.13：`pip install requests python-dotenv feedparser supabase`
+2. 複製 `app\flight_tracker\` 資料夾 + `app\crawler\.env`（含 SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY）到該電腦
+3. Windows Task Scheduler：
+   - Task 名稱：`PMX Flight Tracker`
+   - Trigger：每 15 分鐘重複（forever）
+   - Action：Start a program → `C:\Python313\python.exe app\flight_tracker\flight_tracker.py --once --max 10`
+   - Start in：專案根目錄
+   - Conditions：勾「Start only if AC power」（筆電用）
+4. 或直接跑：`app\flight_tracker\run_tracker.bat`（手動 loop）
+
+[部署 - Vercel（雲端）]
+- Import github.com/USPegatron/pmx-life-news
+- Root Directory = `app/webui`
+- Environment Variables (Production)：
+  - NEXT_PUBLIC_SUPABASE_URL
+  - NEXT_PUBLIC_SUPABASE_ANON_KEY
+  - DEEPL_API_KEY (Secret)
+  - SUPABASE_SERVICE_ROLE_KEY (Secret)
+
+[資料庫 - Supabase migrations（依序執行，皆 idempotent）]
+1. app\supabase\schema.sql — 建表 news_items（基本欄位 + RLS）
+2. app\supabase\schema_v2_content.sql — 加 content_original / content_zh / content_es
+3. app\supabase\schema_v3_images.sql — 加 image_urls (text[])
+4. app\supabase\schema_v4_flights.sql — 建表 flights_to_track + 索引 + RLS
+5. app\supabase\schema_v5_flight_tracker.sql — 加 last_checked_at
+6. app\supabase\schema_v6_flights.sql — 加 airline_name / aircraft_type / departure_delay_minutes / archived_at
+
+[API contract]
+- GET /api/flights?archived=false → { flights: [...] }（anon key 可讀）
+- POST /api/flights/import body { text: "csv..." } → { upserted, skipped, flights }（service_role）
+- PATCH /api/flights/[id] body { status?, actual_dep?, actual_arr?, scheduled_dep?, scheduled_arr?, notes?, updated_by?, airline_name?, aircraft_type?, archived? } → { flight }（自動算 delay_minutes 與 departure_delay_minutes；service_role）
+- GET /api/translate?id=<uuid>&lang=zh|en|es → { content, translated, cached, note }（service_role）
 
 [關鍵事實]
-- 11 feeds 實測可用：border x6 皆在 RSS 夾帶全文；aviation 僅 The Aviationist / FlightAware 有全文
-- DeepL 免費（帳號顯示 100 萬字/月）；按需翻譯＋快取，用量很省；爬蟲內建批次/限流/429-456/原文 fallback
-- Actions 免費分鐘數只給 public repo（約 1-1.5 min/次，月約 1100 min < 2000）
-- 本機跑爬蟲：python app\crawler\main.py（讀 app\crawler\.env；缺 log 目錄會自動建立）
+- 11 feeds 實測可用；border x6 皆含全文 RSS；aviation 僅 Aviationist/FlightAware 有
+- DeepL 免費 100 萬字/月（ToS non-commercial）；按需翻譯 + 快取，用量極省
+- GitHub Actions 免費分鐘數只給 public repo（每月 2000 分鐘，目前約 1100 分鐘）
+- 本機跑爬蟲：`python app\crawler\main.py`（讀 .env）
 - 本機 build webui 用 portable node：
   C:\Users\Jacky2_Wang\.config\opencode\skills\portable-nodejs\bin\node-v24.14.1-win-x64\npm.cmd
-  （系統 PATH 沒有 node）
-- git push 已設持久憑證（%USERPROFILE%\.git-credentials + credential.helper=store；
-  PortableGit 內建的 manager helper 已停用）；push 走 OA proxy http://localhost:3128
+- Persistent git push：env HTTPS_PROXY=http://localhost:3128 + git config credential.helper=store
 
 [憑證位置（不寫入本檔；皆已就位）]
-- 本機 gitignored：app\crawler\.env（SUPABASE_URL / SERVICE_ROLE / DEEPL）、
-  app\webui\.env.local（NEXT_PUBLIC_*）、data\supabase\、根目錄 *.txt 登入備註
-- GitHub repo Secrets：SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / DEEPL_API_KEY
-- Vercel env（Production，Secret）：DEEPL_API_KEY / SUPABASE_SERVICE_ROLE_KEY；
-  另有 NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY
+- 本機 gitignored：app\crawler\.env、app\webui\.env.local、data\supabase\、根目錄 *.txt
+- GitHub repo Secrets：3 個（SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / DEEPL_API_KEY）
+- Vercel env（Production Secret）：2 個（DEEPL_API_KEY / SUPABASE_SERVICE_ROLE_KEY）+ 2 個 NEXT_PUBLIC_*
 
-[待辦 / 可選]
-- 用戶視覺確認「點卡片的閱讀視窗」排版（API 已實測正常）
-- 若某些新聞仍不想要 / 漏掉：調整 app\crawler\filters.py 關鍵字後 push，下一小時生效
+[公司接手建議 - 待評估]
+1. **帳號身份**：現為個人帳號（USPegatron@gmail.com / uspegatron's projects）。若 PMX 正式納編，建議改用：
+   - GitHub Enterprise（公司帳號 + repo）
+   - Vercel Pro / Enterprise
+   - Supabase Pro（公司付費方案 + SLA）
+2. **API 升級**：DeepL Pro（$0.18/月）→ DeepL Pro + 商業授權；或用 OpenAI/Anthropic API 取全文翻譯品質保證
+3. **航班資料**：OpenSky 僅位置，若要延誤分鐘 → 付 AeroAPI（$89/月）或類似的 FlightStats、FlightAware
+4. **內容品質**：filters.py 關鍵字需持續觀察與調校；建議加管理後台檢視被過濾掉的內容、定期 review
+5. **員工體驗**：航班 UI 為 v1 prototype；若員工常用，可加 LINE/Email/Slack 通知、行事曆整合、報到打卡
+6. **資料保留**：依 PMX 法務/HR 政策決定航班資料保留期限（目前 daemon 1 小時後自動備份到 archived_at 欄位）
+
+[聯絡 / 維護]
+- Prototype 由 OpenCode (Pega-Thinking model) 在 PMX 工程師指導下完成
+- 程式碼完整在 github.com/USPegatron/pmx-life-news
+- 部署、debug、調校細節都在這個對話紀錄 + git commit history
