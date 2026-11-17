@@ -23,6 +23,71 @@ import {
 
 const REFRESH_INTERVAL_MS = 60 * 1000; // 60s
 
+/**
+ * IATA airport → IANA timezone. Used to render UTC moments in the airport's
+ * local clock (DB stores timestamptz as UTC; the original timezone offset
+ * is not preserved by Postgres, so we reconstruct it here from the airport code).
+ */
+const AIRPORT_TZ: Record<string, string> = {
+  TPE: "Asia/Taipei",
+  TSA: "Asia/Taipei",
+  HKG: "Asia/Hong_Kong",
+  NRT: "Asia/Tokyo",
+  ICN: "Asia/Seoul",
+  PVG: "Asia/Shanghai",
+  PEK: "Asia/Shanghai",
+  SIN: "Asia/Singapore",
+  BKK: "Asia/Bangkok",
+  KUL: "Asia/Kuala_Lumpur",
+  DEL: "Asia/Kolkata",
+  BOM: "Asia/Kolkata",
+  MEX: "America/Mexico_City",
+  TIJ: "America/Tijuana",
+  GDL: "America/Mexico_City",
+  MTY: "America/Monterrey",
+  CJS: "America/Mexico_City", // Ciudad Juárez (Mountain Time)
+  ELP: "America/Denver",        // El Paso observes Mountain Time
+  LAX: "America/Los_Angeles",
+  SFO: "America/Los_Angeles",
+  SEA: "America/Los_Angeles",
+  PHX: "America/Phoenix",
+  LAS: "America/Los_Angeles",
+  DEN: "America/Denver",
+  ORD: "America/Chicago",
+  ATL: "America/New_York",
+  DFW: "America/Chicago",
+  JFK: "America/New_York",
+  EWR: "America/New_York",
+  IAH: "America/Chicago",
+  MIA: "America/New_York",
+};
+
+/** "HH:mm" in the airport's local timezone (falls back to UTC for unknown airports). */
+function fmtClock(iso: string | null, airportCode: string | null | undefined): string {
+  if (!iso) return "";
+  const tz = (airportCode && AIRPORT_TZ[airportCode.toUpperCase()]) || "UTC";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  try {
+    return new Intl.DateTimeFormat("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: tz,
+      hour12: false,
+    }).format(d);
+  } catch {
+    return `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+  }
+}
+
+/** "M/D" extracted from the date portion of an ISO literal (no TZ conversion). */
+function fmtDate(iso: string | null): string {
+  if (!iso) return "";
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return "";
+  return `${parseInt(m[2], 10)}/${parseInt(m[3], 10)}`;
+}
+
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }
@@ -44,46 +109,67 @@ function plusDaysISODate(days: number): string {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
-/**
- * Extract "HH:mm" directly from an ISO literal string WITHOUT timezone conversion.
- * The stored ISO carries the airport's local timezone (e.g. "2026-11-17T19:40:00+08:00"),
- * so we want the HH:mm as written, not the browser's local time.
- */
-function fmtClock(iso: string | null): string {
-  if (!iso) return "";
-  const m = iso.match(/T(\d{2}):(\d{2})/);
-  return m ? `${m[1]}:${m[2]}` : "";
-}
-
-/** Extract "M/D" from the date portion of an ISO literal (no timezone conversion). */
-function fmtDate(iso: string | null): string {
-  if (!iso) return "";
-  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return "";
-  return `${parseInt(m[2], 10)}/${parseInt(m[3], 10)}`;
-}
-
 /** ISO → "YYYY-MM-DDTHH:mm" for <input type="datetime-local">.
- *  Extracts date+time DIRECTLY from the ISO literal (no browser-timezone conversion),
- *  so the input shows the airport's local time as stored in the ISO (e.g.
- *  "2026-11-17T19:40:00+08:00" → "2026-11-17T19:40").
+ *  Renders the UTC instant in the airport's local timezone so the input
+ *  shows the airport-local wall-clock (not UTC, not browser local).
  */
-function isoToLocalInput(iso: string | null): string {
+function isoToLocalInput(iso: string | null, airportCode: string | null | undefined): string {
   if (!iso) return "";
-  const m = iso.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/);
-  if (!m) return "";
-  return `${m[1]}T${m[2]}:${m[3]}`;
+  const tz = (airportCode && AIRPORT_TZ[airportCode.toUpperCase()]) || "UTC";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hour12: false,
+      timeZone: tz,
+    }).formatToParts(d);
+    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+    return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
+  } catch {
+    const iso2 = iso.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/);
+    if (iso2) return `${iso2[1]}T${iso2[2]}:${iso2[3]}`;
+    return "";
+  }
 }
 
-/** "YYYY-MM-DDTHH:mm" → ISO string. Preserves the timezone offset from `originalIso`
- *  (so the saved value still represents the airport's local time, not the browser's).
- *  Defaults to +00:00 when no original is supplied.
+/** "YYYY-MM-DDTHH:mm" → ISO string. Saves the input as if it were already in the
+ *  airport's local time (i.e. attaches the airport's UTC offset to the wall-clock
+ *  value the user entered). Preserves the originalIso's offset if you pass it.
  */
-function localInputToIso(local: string | null, originalIso?: string | null): string | null {
+function localInputToIso(local: string | null, airportCode: string | null | undefined, originalIso?: string | null): string | null {
   if (!local) return null;
+  // Prefer originalIso's offset (preserves exact stored timezone if present)
   const offMatch = (originalIso ?? "").match(/([+-]\d{2}):?(\d{2})$/);
-  const offset = offMatch ? `${offMatch[1]}:${offMatch[2]}` : "+00:00";
+  if (offMatch) {
+    return `${local}:00${offMatch[1]}:${offMatch[2]}`;
+  }
+  // Otherwise derive offset from airport
+  const tz = (airportCode && AIRPORT_TZ[airportCode.toUpperCase()]) || "UTC";
+  const offset = getTzOffsetString(tz, new Date(local));
   return `${local}:00${offset}`;
+}
+
+/** Convert an IANA tz to its current UTC offset string ("+08:00" / "-08:00"). */
+function getTzOffsetString(tz: string, ref?: Date): string {
+  try {
+    const dtf = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      timeZoneName: "shortOffset",
+      year: "numeric",
+    });
+    const parts = dtf.formatToParts(ref ?? new Date());
+    const offsetPart = parts.find((p) => p.type === "timeZoneName")?.value ?? "";
+    // e.g. "GMT+8" → "+08:00", "GMT-7" → "-07:00"
+    const m = offsetPart.match(/GMT([+-]\d{1,2})(?::?(\d{2}))?/);
+    if (!m) return "+00:00";
+    const sign = m[1][0];
+    const hours = m[1].slice(1).padStart(2, "0");
+    const minutes = (m[2] ?? "00").padStart(2, "0");
+    return `${sign}${hours}:${minutes}`;
+  } catch {
+    return "+00:00";
+  }
 }
 
 function addMinutes(iso: string | null, minutes: number): string | null {
@@ -353,10 +439,10 @@ export function FlightsView({ language }: { language: Language }) {
     setEditing(f);
     setForm({
       status: f.status,
-      scheduled_dep: isoToLocalInput(f.scheduled_dep),
-      scheduled_arr: isoToLocalInput(f.scheduled_arr),
-      actual_dep: isoToLocalInput(f.actual_dep),
-      actual_arr: isoToLocalInput(f.actual_arr),
+      scheduled_dep: isoToLocalInput(f.scheduled_dep, f.dep_airport),
+      scheduled_arr: isoToLocalInput(f.scheduled_arr, f.arr_airport),
+      actual_dep: isoToLocalInput(f.actual_dep, f.dep_airport),
+      actual_arr: isoToLocalInput(f.actual_arr, f.arr_airport),
       airline_name: f.airline_name || "",
       aircraft_type: f.aircraft_type || "",
       notes: f.notes || "",
@@ -373,7 +459,7 @@ export function FlightsView({ language }: { language: Language }) {
 
   const applyPreset = (kind: "onTime" | "delay20" | "delay60" | "cancel") => {
     const sched = form.scheduled_arr
-      ? localInputToIso(form.scheduled_arr, editing?.scheduled_arr)
+      ? localInputToIso(form.scheduled_arr, editing?.arr_airport, editing?.scheduled_arr)
       : editing?.scheduled_arr ?? null;
 
     if (kind === "cancel") {
@@ -384,7 +470,7 @@ export function FlightsView({ language }: { language: Language }) {
     const actual = addMinutes(sched, delta);
     setForm((f) => ({
       ...f,
-      actual_arr: actual ? isoToLocalInput(actual) : f.actual_arr,
+      actual_arr: actual ? isoToLocalInput(actual, editing?.arr_airport) : f.actual_arr,
       status: "arrived",
     }));
   };
@@ -398,19 +484,19 @@ export function FlightsView({ language }: { language: Language }) {
     const body: Record<string, unknown> = {};
     if (form.status && form.status !== editing.status) body.status = form.status;
     {
-      const v = localInputToIso(form.scheduled_dep, editing.scheduled_dep);
+      const v = localInputToIso(form.scheduled_dep, editing.dep_airport, editing.scheduled_dep);
       if (v !== editing.scheduled_dep) body.scheduled_dep = v;
     }
     {
-      const v = localInputToIso(form.scheduled_arr, editing.scheduled_arr);
+      const v = localInputToIso(form.scheduled_arr, editing.arr_airport, editing.scheduled_arr);
       if (v !== editing.scheduled_arr) body.scheduled_arr = v;
     }
     {
-      const v = localInputToIso(form.actual_dep, editing.actual_dep);
+      const v = localInputToIso(form.actual_dep, editing.dep_airport, editing.actual_dep);
       if (v !== editing.actual_dep) body.actual_dep = v;
     }
     {
-      const v = localInputToIso(form.actual_arr, editing.actual_arr);
+      const v = localInputToIso(form.actual_arr, editing.arr_airport, editing.actual_arr);
       if (v !== editing.actual_arr) body.actual_arr = v;
     }
     {
@@ -1056,7 +1142,7 @@ function CompactFlightCard({
             {fmtDate(flight.scheduled_dep) || "—"}
           </span>
           <span className="text-base font-display font-semibold text-ink tabular-nums shrink-0 leading-none">
-            {fmtClock(flight.scheduled_dep) || "—"}
+            {fmtClock(flight.scheduled_dep, flight.dep_airport) || "—"}
           </span>
           <span
             className="text-ink-light/50 text-xs shrink-0 leading-none"
@@ -1065,8 +1151,8 @@ function CompactFlightCard({
             →
           </span>
           <ActualTime
-            scheduled={fmtClock(flight.scheduled_dep)}
-            actual={flight.actual_dep ? fmtClock(flight.actual_dep) : null}
+            scheduled={fmtClock(flight.scheduled_dep, flight.dep_airport)}
+            actual={flight.actual_dep ? fmtClock(flight.actual_dep, flight.dep_airport) : null}
             notYetLabel={notYetDepLabel}
             onTimeLabel={ui.flightDelayOnTime}
           />
@@ -1082,7 +1168,7 @@ function CompactFlightCard({
             {fmtDate(flight.scheduled_arr) || "—"}
           </span>
           <span className="text-base font-display font-semibold text-ink tabular-nums shrink-0 leading-none">
-            {fmtClock(flight.scheduled_arr) || "—"}
+            {fmtClock(flight.scheduled_arr, flight.arr_airport) || "—"}
           </span>
           <span
             className="text-ink-light/50 text-xs shrink-0 leading-none"
@@ -1091,8 +1177,8 @@ function CompactFlightCard({
             →
           </span>
           <ActualTime
-            scheduled={fmtClock(flight.scheduled_arr)}
-            actual={flight.actual_arr ? fmtClock(flight.actual_arr) : null}
+            scheduled={fmtClock(flight.scheduled_arr, flight.arr_airport)}
+            actual={flight.actual_arr ? fmtClock(flight.actual_arr, flight.arr_airport) : null}
             notYetLabel={notYetArrLabel}
             onTimeLabel={ui.flightDelayOnTime}
           />
