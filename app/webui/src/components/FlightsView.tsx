@@ -1164,9 +1164,9 @@ function CompactFlightCard({
           the localised `notYetLabel`; when actual === scheduled it shows
           the localised `onTimeLabel`. The existing 更新 button above is
           the single entry point for editing both times. */}
-      <div className="grid grid-cols-2 mt-2 min-w-0">
-        {/* Dep side: left-aligned (IATA aligns with row1's first char) */}
-        <div className="text-left min-w-0">
+      <div className="flex mt-2 min-w-0">
+        {/* Dep side: pl-5 (20px) matches row1's dot(w-3)+gap-2 offset so IATA aligns with the date */}
+        <div className="w-1/2 pl-5 text-left min-w-0 overflow-hidden">
           <span className="inline-flex items-baseline gap-x-1.5">
             <span className="text-sm font-semibold tracking-wide text-ink uppercase leading-none">
               {flight.dep_airport}
@@ -1189,8 +1189,8 @@ function CompactFlightCard({
             />
           </span>
         </div>
-        {/* Arr side: left-aligned to midline + status icon */}
-        <div className="text-left min-w-0">
+        {/* Arr side: starts at 50% (midline), left-aligned */}
+        <div className="w-1/2 text-left min-w-0 overflow-hidden">
           <span className="inline-flex items-baseline gap-x-1.5">
             <span className="text-sm font-semibold tracking-wide text-ink uppercase leading-none">
               {flight.arr_airport}
