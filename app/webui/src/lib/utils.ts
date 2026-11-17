@@ -511,8 +511,9 @@ export function filterNewsItems(
   return filtered;
 }
 
-/** Traffic-light colour for a flight row. */
+/** Traffic-light colour for a flight row (incl. "hollow" for "not yet departed"). */
 export type FlightTrafficLight =
+  | "hollow"
   | "green"
   | "blue"
   | "yellow"
@@ -520,28 +521,59 @@ export type FlightTrafficLight =
   | "black";
 
 /**
+ * Left-side light = departure status.
  * Rules (first match wins):
- *   - black: status === "cancelled"
- *   - blue : delay_minutes <= -15 (early)
- *   - red  : delay_minutes > 30   (delayed more than 30 min)
- *   - yellow: delay_minutes >= 15 (delayed 15..30 min)
- *   - green: otherwise (on-time ±15 min, or no delay data)
+ *   - black  : status === "cancelled"
+ *   - hollow : not yet departed (status scheduled + no actual_dep)
+ *   - blue   : departure_delay_minutes <= -15 (early by ≥15 min)
+ *   - red    : departure_delay_minutes >  30  (late ≥30 min)
+ *   - yellow : departure_delay_minutes >=  15  (late 15..30 min)
+ *   - green  : otherwise (on-time ±15 min, or no departure delay data yet)
  */
-export function flightTrafficLight(flight: Flight): FlightTrafficLight {
+export function flightDepLight(flight: Flight): FlightTrafficLight {
   if (flight.status === "cancelled") return "black";
-
-  const d = flight.delay_minutes;
+  if (!flight.actual_dep && (flight.status === "scheduled" || flight.status === "cancelled")) {
+    if (flight.status === "scheduled") return "hollow";
+  }
+  const d = flight.departure_delay_minutes;
   if (d === null || d === undefined || Number.isNaN(d)) return "green";
-
   if (d <= -15) return "blue";
   if (d > 30) return "red";
   if (d >= 15) return "yellow";
   return "green";
 }
 
-/** Map a traffic-light value to the Tailwind background class. */
+/**
+ * Right-side light = arrival status.
+ * Rules (first match wins):
+ *   - black  : cancelled and never going to arrive (no actual_arr) → 轉降/取消
+ *   - blue   : delay_minutes <= -15 (arrived early by ≥15 min)
+ *   - red    : delay_minutes >  30  (arrived late ≥30 min)
+ *   - yellow : delay_minutes >=  15  (arrived late 15..30 min)
+ *   - green  : otherwise (on-time ±15 min, or no arrival data yet)
+ */
+export function flightArrLight(flight: Flight): FlightTrafficLight {
+  if (flight.status === "cancelled" && !flight.actual_arr) return "black";
+  const d = flight.delay_minutes;
+  if (d === null || d === undefined || Number.isNaN(d)) return "green";
+  if (d <= -15) return "blue";
+  if (d > 30) return "red";
+  if (d >= 15) return "yellow";
+  return "green";
+}
+
+/** @deprecated kept for back-compat; callers should use flightArrLight() or flightDepLight(). */
+export function flightTrafficLight(flight: Flight): FlightTrafficLight {
+  return flightArrLight(flight);
+}
+
+/** Map a traffic-light value to the Tailwind background class.
+ *  Hollow = empty ring (透明填充); black = 閃爍（animate-pulse）。
+ */
 export function flightTrafficLightClass(light: FlightTrafficLight): string {
   switch (light) {
+    case "hollow":
+      return "border-2 border-zinc-400 bg-transparent dark:border-zinc-500";
     case "green":
       return "bg-emerald-500";
     case "blue":
@@ -551,6 +583,6 @@ export function flightTrafficLightClass(light: FlightTrafficLight): string {
     case "red":
       return "bg-rose-500";
     case "black":
-      return "bg-zinc-900";
+      return "bg-zinc-900 animate-pulse";
   }
 }
