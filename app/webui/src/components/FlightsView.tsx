@@ -608,8 +608,9 @@ export function FlightsView({ language }: { language: Language }) {
 
   return (
     <>
-      {/* Top filter row — sticky below global page header. Compact. */}
-      <div className="sticky top-[79px] sm:top-[49px] z-40 bg-paper/95 backdrop-blur-sm border-b border-border px-3 sm:px-6 py-1.5 mb-2 flex flex-wrap items-center gap-2">
+      {/* Top sticky block: filter row + column headers (desktop). */}
+      <div className="sticky top-[79px] sm:top-[49px] z-40 bg-paper/95 backdrop-blur-sm border-b border-border px-3 sm:px-6 mb-2">
+      <div className="py-1.5 flex flex-wrap items-center gap-2">
         <div
           role="group"
           aria-label="flight range"
@@ -727,6 +728,18 @@ export function FlightsView({ language }: { language: Language }) {
           </svg>
           <span>歷史紀錄</span>
         </a>
+      </div>
+      {/* Column headers — desktop only, matches the grid below */}
+      <div className="hidden lg:grid lg:grid-cols-2 lg:gap-4 lg:pb-1.5">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-display font-semibold text-ink tracking-tight">{ui.flightPendingDeparture}</span>
+          <span className="inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 text-[11px] font-semibold rounded-full bg-ink/5 text-ink-light tabular-nums">{leftFlights.length}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-display font-semibold text-ink tracking-tight">{ui.flightInTransit}</span>
+          <span className="inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 text-[11px] font-semibold rounded-full bg-ink/5 text-ink-light tabular-nums">{rightFlights.length}</span>
+        </div>
+      </div>
       </div>
 
       {/* Import panel (collapsed by default) */}
@@ -1011,6 +1024,7 @@ function FlightColumn({
   language,
   onUpdate,
   emptyText,
+  showHeader = true,
 }: {
   title: string;
   count: number;
@@ -1018,10 +1032,12 @@ function FlightColumn({
   language: Language;
   onUpdate: (f: Flight) => void;
   emptyText: string;
+  showHeader?: boolean;
 }) {
   return (
     <section>
-      <header className="sticky top-[116px] sm:top-[85px] z-30 bg-paper/95 backdrop-blur-sm flex items-center gap-2 mb-1.5">
+      {showHeader && (
+      <header className="lg:hidden flex items-center gap-2 mb-1.5">
         <h2 className="text-sm font-display font-semibold text-ink tracking-tight">
           {title}
         </h2>
@@ -1029,6 +1045,7 @@ function FlightColumn({
           {count}
         </span>
       </header>
+      )}
       {flights.length === 0 ? (
         <div className="text-xs text-ink-light/80 italic py-4 px-3 bg-white border border-border border-dashed rounded-md">
           「{emptyText}」
