@@ -51,6 +51,13 @@ export default function Home() {
   const [selected, setSelected] = useState<NewsItem | null>(null);
   const [view, setView] = useState<"news" | "flights">("news");
 
+  // Support hash-based tab selection (e.g. /#flights from history page)
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.hash === "#flights") {
+      setView("flights");
+    }
+  }, []);
+
   // Filters
   const [language, setLanguage] = useState<Language>("en");
   const [searchQuery, setSearchQuery] = useState("");

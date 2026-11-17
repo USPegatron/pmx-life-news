@@ -53,15 +53,18 @@ TEMPLATE_BACKUP = TEMPLATE_PATH.with_suffix(
 # Re-use the parser we already wrote.
 sys.path.insert(0, str(PROJECT_ROOT / "app" / "flight_parser"))
 import parse_emails  # type: ignore  # noqa: E402
+import iata_tz        # type: ignore  # noqa: E402
 
 
 def build_upload_csv(in_csv: Path, out_csv: Path) -> int:
     """Reshape the 9-col CSV into the 7-col format the import endpoint accepts.
 
     Columns: flight_date(YYYY-MM-DD), dep, arr, code, num, scheduled_dep, scheduled_arr
-    - scheduled_dep/arr: pass empty (the importer leaves null and the
-      flight_enricher / backfill_scheduled.py fill them with full ISO+offset
-      later via web lookup).
+    - scheduled_dep/arr: filled with ISO 8601 + offset when the source CSV
+      has HH:MM (or full ISO) — derived from `flight_date + HH:MM +
+      airport IANA TZ`. Falls back to empty if we can't resolve the airport
+      timezone (then flight_enricher / backfill_scheduled.py can fill later
+      via web lookup).
     - flight_date is converted from M/D/YYYY to ISO YYYY-MM-DD.
     """
     with in_csv.open("r", encoding="utf-8") as fin, \
@@ -72,20 +75,54 @@ def build_upload_csv(in_csv: Path, out_csv: Path) -> int:
                     "airline_code", "flight_number",
                     "scheduled_dep", "scheduled_arr"])
         n = 0
+        from datetime import datetime, timedelta
+        try:
+            from zoneinfo import ZoneInfo
+        except ImportError:
+            ZoneInfo = None  # type: ignore
+
+        def _to_iso(date_str: str, time_str: str, airport: str) -> str:
+            if not time_str:
+                return ""
+            # Already ISO?
+            import re as _re
+            if _re.match(r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}", time_str):
+                return time_str
+            m = _re.match(r"^(\d{1,2}):(\d{2})(?:\+(\d+))?$", time_str.strip())
+            if not m:
+                return ""
+            hh, mi = int(m.group(1)), int(m.group(2))
+            plus = int(m.group(3) or 0)
+            md = _re.match(r"^(\d{1,2})/(\d{1,2})/(\d{4})$", date_str.strip())
+            if not md:
+                return ""
+            mo, d, y = int(md.group(1)), int(md.group(2)), int(md.group(3))
+            tz_name = iata_tz.tz_for(airport)
+            if not tz_name or ZoneInfo is None:
+                return ""
+            try:
+                tz = ZoneInfo(tz_name)
+            except Exception:
+                return ""
+            dt = datetime(y, mo, d, hh, mi, tzinfo=tz) + timedelta(days=plus)
+            return dt.isoformat()
+
         for row in r:
-            md = row["flight_date"]                  # e.g. 11/11/2026
+            md = row["flight_date"]
             try:
                 mo, d, y = md.split("/")
                 iso = f"{int(y):04d}-{int(mo):02d}-{int(d):02d}"
             except ValueError:
-                continue  # malformed row, skip
+                continue
+            dep_iso = _to_iso(md, row.get("scheduled_dep", ""), row.get("dep_airport", ""))
+            arr_iso = _to_iso(md, row.get("scheduled_arr", ""), row.get("arr_airport", ""))
             w.writerow([iso,
                         row["dep_airport"].upper(),
                         row["arr_airport"].upper(),
                         row["airline_code"].upper(),
                         row["flight_number"],
-                        "",     # scheduled_dep — leave null for enricher
-                        ""])    # scheduled_arr
+                        dep_iso,
+                        arr_iso])
             n += 1
     return n
 
@@ -127,6 +164,10 @@ def upload_to_supabase(upload_csv: Path, env_path: Path) -> dict:
     directly (bypasses the Vercel /api/flights/import server route, but with
     identical semantics: status='scheduled', updated_by='import').
 
+    Reads `scheduled_dep` and `scheduled_arr` from the upload CSV — those
+    columns are filled with full ISO 8601 + offset by `build_upload_csv`
+    (HH:MM + flight_date + airport IANA TZ). Falls back to None when empty.
+
     Returns the parsed JSON response.
     """
     # Read .env
@@ -142,8 +183,6 @@ def upload_to_supabase(upload_csv: Path, env_path: Path) -> dict:
     key = env["SUPABASE_SERVICE_ROLE_KEY"]
     ca = env.get("REQUESTS_CA_BUNDLE")  # optional PEM for proxy
 
-    # Build JSON payload: 7-col rows. Note that the import route uses
-    # `updated_by = "import"` and `status = "scheduled"` — we mirror that.
     rows: list[dict] = []
     with upload_csv.open("r", encoding="utf-8") as f:
         r = csv.DictReader(f)
@@ -154,8 +193,8 @@ def upload_to_supabase(upload_csv: Path, env_path: Path) -> dict:
                 "arr_airport":   row["arr_airport"].upper(),
                 "airline_code":  row["airline_code"].upper(),
                 "flight_number": row["flight_number"].upper(),
-                "scheduled_dep": None,
-                "scheduled_arr": None,
+                "scheduled_dep": row.get("scheduled_dep") or None,
+                "scheduled_arr": row.get("scheduled_arr") or None,
                 "status":        "scheduled",
                 "updated_by":    "import",
             })
@@ -284,6 +323,9 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"     - {f.get('flight_date')} {f.get('airline_code')}{f.get('flight_number')} {f.get('dep_airport')}->{f.get('arr_airport')}")
                 if len(res.get("flights", [])) > 5:
                     print(f"     ... and {len(res['flights'])-5} more")
+
+    # NOTE: PMX policy is CSV = cumulative log (keep expired rows for history).
+    # Only Supabase / Life News tracks non-expired flights. Do NOT purge CSV.
 
     print("\nDone.")
     return 0

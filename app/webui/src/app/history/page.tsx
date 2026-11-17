@@ -78,7 +78,7 @@ export default function HistoryPage() {
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Link
-          href="/"
+          href="/#flights"
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium
             bg-white border border-border rounded-lg
             text-ink-light hover:text-ink hover:border-ink/30 transition-colors"

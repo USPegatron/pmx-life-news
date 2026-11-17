@@ -148,17 +148,28 @@ CSV_COLUMNS = [
 
 @dataclass
 class FlightSeg:
-    """One segment (one takeoff, one landing) extracted from an email body."""
+    """One segment (one takeoff, one landing) extracted from an email body
+    or a PDF itinerary. Optional ISO fields carry full datetime with TZ
+    when the source provides them (PDFs do; email bodies do not)."""
     flight_date: str            # M/D/YYYY (e.g., 11/13/2026)
     dep_airport: str            # 3-letter IATA
     arr_airport: str            # 3-letter IATA
     airline_code: str           # 2-letter IATA
     flight_number: str          # digits as string
-    scheduled_dep: str          # HH:MM local at dep airport
-    scheduled_arr: str          # HH:MM local at arr airport (may carry "+1" suffix)
+    scheduled_dep: str          # HH:MM local at dep airport (for CSV)
+    scheduled_arr: str          # HH:MM local at arr airport, may carry "+1" (for CSV)
     src_file: str = ""
     raw_line: str = ""
-    aircraft_type: str = ""     # left blank; filled by enricher later
+    aircraft_type: str = ""     # filled by PDF parser; left blank by body parser
+    # Full ISO datetime with offset, populated by the PDF parser. Used for
+    # Supabase upload (and for the expiry filter when present).
+    scheduled_dep_iso: str = ""
+    scheduled_arr_iso: str = ""
+    # Optional enrichment fields populated by the PDF parser.
+    pnr: str = ""
+    ticket_number: str = ""
+    cabin_class: str = ""
+    seat: str = ""
 
     def to_row(self) -> dict[str, str]:
         airline = AIRLINE_NAMES.get(self.airline_code.upper(), self.airline_code)
@@ -397,7 +408,8 @@ def parse_email(msg_path: Path) -> EmailMeta | None:
 # ---------------------------------------------------------------------------
 
 def write_csv(metas: list[EmailMeta], out_path: Path,
-              append: bool = False, dedup: bool = False) -> int:
+              append: bool = False, dedup: bool = False,
+              sort_desc: bool = True) -> int:
     """Write segments to CSV.
 
     - append=False (default): overwrite the file with a fresh header + rows.
@@ -410,6 +422,10 @@ def write_csv(metas: list[EmailMeta], out_path: Path,
       same physical flight regardless of passenger, so we collapse duplicates.
       If route parsing produced different routes for the same flight, the
       first occurrence wins.
+    - sort_desc=True (default): after writing, the whole file is re-sorted by
+      arrival date+time descending — newest arrivals first. PMX review order.
+
+    Returns number of rows actually written (after dedup).
     """
     out_path.parent.mkdir(parents=True, exist_ok=True)
     existing: set[tuple[str, str, str]] = set()
@@ -435,7 +451,51 @@ def write_csv(metas: list[EmailMeta], out_path: Path,
                 w.writerow(seg.to_row())
                 existing.add(key)
                 n += 1
+
+    if sort_desc and out_path.exists():
+        _sort_csv_desc(out_path)
     return n
+
+
+def _sort_csv_desc(csv_path: Path) -> None:
+    """Re-sort the CSV by arrival datetime DESC (newest first).
+
+    Sort key = (flight_date DESC, scheduled_arr DESC, scheduled_dep DESC).
+    Header is preserved. Empty / unparseable date/time values sort last.
+    """
+    with csv_path.open("r", encoding="utf-8", newline="") as f:
+        r = csv.DictReader(f)
+        rows = list(r)
+
+    def key(row: dict) -> tuple[int, int, int, str, str, str]:
+        # Negate the parsed tuple components so Python's ascending sort gives
+        # descending order. Use big sentinels (9999..) for empty fields so
+        # blanks sink to the bottom.
+        d = row.get("flight_date", "")
+        try:
+            mo, da, y = d.split("/")
+            ymd = (int(y), int(mo), int(da))
+            ymd_key = (-int(y), -int(mo), -int(da))  # DESC
+        except ValueError:
+            ymd_key = (9999, 9999, 9999)
+        arr = row.get("scheduled_arr", "") or "00:00"
+        dep = row.get("scheduled_dep", "") or "00:00"
+        # Compare "HH:MM" or "HH:MM+N" — strip the suffix.
+        def hhmm(s: str) -> tuple[int, int]:
+            m = re.match(r"^(\d{1,2}):(\d{2})", s)
+            return (int(m.group(1)), int(m.group(2))) if m else (-1, -1)
+        ah, ami = hhmm(arr)
+        dh, dmi = hhmm(dep)
+        # DESC by arrival then departure
+        return (*ymd_key, -ah if ah >= 0 else 9999, -ami if ami >= 0 else 99,
+                -dh if dh >= 0 else 9999, -dmi if dmi >= 0 else 99)
+
+    rows.sort(key=key)
+
+    with csv_path.open("w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=CSV_COLUMNS)
+        w.writeheader()
+        w.writerows(rows)
 
 
 def main(argv: list[str] | None = None) -> int:

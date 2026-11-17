@@ -17,11 +17,12 @@ echo   3) Start webui dev           (http://localhost:3000)
 echo   4) Build webui               (production build test)
 echo   5) Flight parser: parse + upload .msg folder
 echo   6) Flight parser: server     (http://127.0.0.1:8765)
-echo   7) Flight parser: daily backfill (180d via mailbox)
-echo   8) Open app / log folders
-echo   9) Exit
+echo   7) Flight parser: EMAIL search - backfill 180 days via IMAP
+echo   8) Flight parser: EMAIL search - last 7 days via IMAP
+echo   9) Open app / log folders
+echo  10) Exit
 echo ================================================================
-set /p "c=Choose [1-9]: "
+set /p "c=Choose [1-10]: "
 
 if "%c%"=="1" goto CRAWL
 if "%c%"=="2" goto DRYRUN
@@ -30,8 +31,9 @@ if "%c%"=="4" goto BUILD
 if "%c%"=="5" goto FPARSE
 if "%c%"=="6" goto FSERVER
 if "%c%"=="7" goto FBACKFILL
-if "%c%"=="8" goto OPEN
-if "%c%"=="9" goto END
+if "%c%"=="8" goto FSEARCH7D
+if "%c%"=="9" goto OPEN
+if "%c%"=="10" goto END
 goto MENU
 
 :CRAWL
@@ -130,19 +132,42 @@ pause
 goto MENU
 
 :FBACKFILL
-echo [*] Flight parser: one-time backfill via mailbox (180 days)
-echo     Requires the server running and MAILBOX_* configured in app\crawler\.env
+echo ================================================================
+echo   Email search: one-time backfill via signed-in Outlook inbox
+echo ================================================================
+echo   Uses Windows COM automation to read your signed-in Outlook
+echo   mailbox directly. NO IMAP credentials required.
 echo.
-set /p "skip=Start server if not running? (y/N) "
-if /I "%skip%"=="Y" goto FBACKFILL_SRV
-curl -s -X POST -H "Content-Type: application/json" -d "{\"days\":180}" http://127.0.0.1:8765/api/backfill
+echo   The server fetches inbox messages, parses flight segments,
+echo   filters expired, appends cumulative CSV, uploads non-expired
+echo   flights to Supabase, and archives already-arrived flights.
+echo ================================================================
+echo.
+start "PMX Flight Parser Server" cmd /k "%PY% -m uvicorn app.flight_parser.server:app --host 127.0.0.1 --port 8765"
+echo [*] Waiting for server to start...
+ping 127.0.0.1 -n 5 >nul
+echo.
+echo [*] Calling POST /api/scan-outlook (full inbox, default 200 msgs)...
+curl -s -X POST -H "Content-Type: application/json" -d "{\"limit\":300,\"filter_expired\":true,\"upload\":true,\"append_cumulative\":true}" http://127.0.0.1:8765/api/scan-outlook
+echo.
 echo.
 pause
 goto MENU
-:FBACKFILL_SRV
+
+:FSEARCH7D
+echo ================================================================
+echo   Email search: scan Outlook inbox (last 7 days, on demand)
+echo ================================================================
+echo   Same prerequisites as the backfill option above. Scans only
+echo   the last 7 days of emails for fresh flights.
+echo ================================================================
+echo.
 start "PMX Flight Parser Server" cmd /k "%PY% -m uvicorn app.flight_parser.server:app --host 127.0.0.1 --port 8765"
-ping 127.0.0.1 -n 4 >nul
-curl -s -X POST -H "Content-Type: application/json" -d "{\"days\":180}" http://127.0.0.1:8765/api/backfill
+ping 127.0.0.1 -n 5 >nul
+echo.
+echo [*] Calling POST /api/scan-outlook (last 7 days)...
+curl -s -X POST -H "Content-Type: application/json" -d "{\"limit\":300,\"lookback_days\":7,\"filter_expired\":true,\"upload\":true,\"append_cumulative\":true}" http://127.0.0.1:8765/api/scan-outlook
+echo.
 echo.
 pause
 goto MENU
