@@ -20,23 +20,29 @@ function parseLine(line: string) {
   // No `.filter(Boolean)` here — empty trailing fields must still count toward
   // the column count, otherwise rows with blank optionals collapse wrongly.
   const parts = line.split(",").map((s) => s.trim());
-  if (parts.length !== 3 && parts.length !== 5 && parts.length !== 7) return null;
-  const [
-    flight_date,
-    dep_or_empty,
-    arr_or_empty,
-    airline_code,
-    flight_number,
-    scheduled_dep,
-    scheduled_arr,
-  ] = parts;
-  if (
-    !flight_date ||
-    !airline_code ||
-    !flight_number
-  ) {
-    return null;
+  const n = parts.length;
+  // Supported: 3, 5, 7, 8, 9 columns
+  if (n !== 3 && n !== 5 && n !== 7 && n !== 8 && n !== 9) return null;
+  let flight_date: string, dep_airport: string, arr_airport: string;
+  let airline_code: string, flight_number: string;
+  let airline_name: string | undefined, aircraft_type: string | undefined;
+  let scheduled_dep: string | undefined, scheduled_arr: string | undefined;
+
+  if (n === 3) {
+    [flight_date, airline_code, flight_number] = parts;
+    dep_airport = ""; arr_airport = "";
+  } else if (n === 5) {
+    [flight_date, dep_airport, arr_airport, airline_code, flight_number] = parts;
+  } else if (n === 7) {
+    [flight_date, dep_airport, arr_airport, airline_code, flight_number, scheduled_dep, scheduled_arr] = parts;
+  } else if (n === 8) {
+    [flight_date, dep_airport, arr_airport, airline_code, flight_number, airline_name, aircraft_type, scheduled_dep] = parts;
+    scheduled_arr = undefined;
+  } else {
+    // 9 cols: flight_date, dep, arr, airline, flight#, airline_name, aircraft_type, sched_dep, sched_arr
+    [flight_date, dep_airport, arr_airport, airline_code, flight_number, airline_name, aircraft_type, scheduled_dep, scheduled_arr] = parts;
   }
+  if (!flight_date || !airline_code || !flight_number) return null;
 
   // Accept YYYY-MM-DD (ISO) or M/D/YYYY (US) — normalise to ISO.
   const isoDate = (() => {
@@ -67,10 +73,12 @@ function parseLine(line: string) {
 
   return {
     flight_date: isoDate,
-    dep_airport: (dep_or_empty || "").toUpperCase(),
-    arr_airport: (arr_or_empty || "").toUpperCase(),
+    dep_airport: (dep_airport || "").toUpperCase(),
+    arr_airport: (arr_airport || "").toUpperCase(),
     airline_code: airline_code.toUpperCase(),
     flight_number: flight_number.toUpperCase(),
+    airline_name: airline_name || null,
+    aircraft_type: aircraft_type || null,
     scheduled_dep: parseOptionalIso(scheduled_dep),
     scheduled_arr: parseOptionalIso(scheduled_arr),
     status: "scheduled" as const,
