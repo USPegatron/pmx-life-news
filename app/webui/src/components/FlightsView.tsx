@@ -1229,17 +1229,24 @@ function ActualTime({
   notYetLabel: string;
   onTimeLabel: string;
 }) {
-  const sameAsScheduled = !!scheduled && !!actual && scheduled === actual;
-  // Always show the time. When on-time (same as scheduled) show time + subtle "準點".
-  const text = !actual
-    ? notYetLabel
-    : sameAsScheduled
-    ? `${actual}`
-    : actual;
-  const className = !actual
-    ? "text-sm text-ink-light/60 italic leading-none shrink-0"
-    : "text-sm text-ink-light tabular-nums leading-none shrink-0";
-  return <span className={className}>{text}</span>;
+  if (!actual) {
+    // Event hasn't happened yet — just the status label
+    return (
+      <span className="text-sm text-ink-light/60 italic leading-none shrink-0">
+        {notYetLabel}
+      </span>
+    );
+  }
+  const isOnTime = actual === scheduled;
+  // Always show the time + a short label ("準點" if confirmed on-time, otherwise the state word)
+  return (
+    <span className="text-sm text-ink-light leading-none shrink-0 whitespace-nowrap">
+      <span className="tabular-nums">{actual}</span>
+      <span className="text-ink-light/50 ml-1 text-xs italic">
+        {isOnTime ? onTimeLabel : notYetLabel}
+      </span>
+    </span>
+  );
 }
 
 // ---------- Update modal ----------
