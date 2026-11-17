@@ -12,6 +12,7 @@ import type { Flight, Language } from "@/lib/types";
 import {
   getUIStrings,
   flightDepLight,
+  flightArrLight,
   flightTrafficLight,
   flightTrafficLightClass,
   getAirlineName,
@@ -1050,7 +1051,12 @@ function CompactFlightCard({
   onUpdate: () => void;
 }) {
   const ui = getUIStrings(language);
-  const depLight: FlightTrafficLight = flightDepLight(flight);
+  // Pick the right light: departure logic (left column) vs arrival logic (right column).
+  // A flight is "departed" when actual_dep is set OR now >= scheduled_dep.
+  const _now = Date.now();
+  const _depRef = flight.actual_dep ?? flight.scheduled_dep;
+  const _departed = !!(_depRef && new Date(_depRef).getTime() <= _now);
+  const depLight: FlightTrafficLight = _departed ? flightArrLight(flight) : flightDepLight(flight);
   const depDotClass = flightTrafficLightClass(depLight);
   const ref = `${flight.airline_code}${flight.flight_number}`;
   // Airline display name — DB value preferred, IATA lookup as fallback so the

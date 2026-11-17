@@ -625,20 +625,27 @@ export function filterNewsItems(
 export type FlightTrafficLight =
   | "hollow"
   | "green"
-  | "blue"
   | "yellow"
   | "red"
   | "black";
 
 /**
- * Left-side light = departure status.
- * Rules (first match wins):
- *   - black  : status === "cancelled"
- *   - hollow : not yet departed (status scheduled + no actual_dep)
- *   - blue   : departure_delay_minutes <= -15 (early by ≥15 min)
- *   - red    : departure_delay_minutes >  30  (late ≥30 min)
- *   - yellow : departure_delay_minutes >=  15  (late 15..30 min)
- *   - green  : otherwise (on-time ±15 min, or no departure delay data yet)
+ * Shared delay → light logic (identical for departure and arrival):
+ *   - delay ≤ 15 min (including early/negative) → green
+ *   - 15 < delay ≤ 30 min late → yellow
+ *   - delay > 30 min late → red (flashing)
+ */
+function delayToLight(delayMinutes: number): FlightTrafficLight {
+  if (delayMinutes <= 15) return "green"; // on-time or early
+  if (delayMinutes <= 30) return "yellow";
+  return "red";
+}
+
+/**
+ * Departure light (left column — before takeoff):
+ *   - hollow : not yet departed
+ *   - green/yellow/red : scheduled vs actual/expected departure delay
+ *   - black  : cancelled
  */
 export function flightDepLight(flight: Flight): FlightTrafficLight {
   if (flight.status === "cancelled") return "black";
@@ -646,43 +653,27 @@ export function flightDepLight(flight: Flight): FlightTrafficLight {
   const depRef = flight.actual_dep ?? flight.scheduled_dep;
   if (!depRef) return "hollow";
   if (now < new Date(depRef).getTime()) return "hollow"; // not yet departed
-  // Departed — check delay if both actual and scheduled are available
+  // Compute departure delay (actual vs scheduled; 0 if no actual yet)
   if (flight.actual_dep && flight.scheduled_dep) {
     const d = (new Date(flight.actual_dep).getTime() - new Date(flight.scheduled_dep).getTime()) / 60_000;
-    if (d <= -15) return "blue";
-    if (d > 30) return "red";
-    if (d >= 15) return "yellow";
+    return delayToLight(d);
   }
-  return "green"; // departed on-time (or assumed on-time)
+  return "green"; // no actual yet → assume on-time
 }
 
 /**
- * Right-side light = arrival status.
- * Rules (first match wins):
- *   - black  : cancelled and never going to arrive (no actual_arr) → 轉降/取消
- *   - blue   : delay_minutes <= -15 (arrived early by ≥15 min)
- *   - red    : delay_minutes >  30  (arrived late ≥30 min)
- *   - yellow : delay_minutes >=  15  (arrived late 15..30 min)
- *   - green  : otherwise (on-time ±15 min, or no arrival data yet)
+ * Arrival light (right column — after takeoff):
+ *   - green/yellow/red : scheduled vs actual/expected arrival delay
+ *   - black  : cancelled and won't arrive (diverted/转降)
  */
 export function flightArrLight(flight: Flight): FlightTrafficLight {
   if (flight.status === "cancelled" && !flight.actual_arr) return "black";
-  const now = Date.now();
-  const arrRef = flight.actual_arr ?? flight.scheduled_arr;
-  const depRef = flight.actual_dep ?? flight.scheduled_dep;
-  if (!arrRef) return "hollow";
-  const arrTime = new Date(arrRef).getTime();
-  const depTime = depRef ? new Date(depRef).getTime() : null;
-  if (depTime && now < depTime) return "hollow"; // not yet departed
-  if (now < arrTime) return "blue"; // in-transit (departed, not yet arrived)
-  // At or past expected arrival — check delay if both actual and scheduled available
+  // Compute arrival delay (actual vs scheduled; 0 if no actual yet)
   if (flight.actual_arr && flight.scheduled_arr) {
     const d = (new Date(flight.actual_arr).getTime() - new Date(flight.scheduled_arr).getTime()) / 60_000;
-    if (d <= -15) return "blue";
-    if (d > 30) return "red";
-    if (d >= 15) return "yellow";
+    return delayToLight(d);
   }
-  return "green"; // arrived on-time (or assumed on-time)
+  return "green"; // no actual yet → assume on-time
 }
 
 /** @deprecated kept for back-compat; callers should use flightArrLight() or flightDepLight(). */
@@ -691,7 +682,7 @@ export function flightTrafficLight(flight: Flight): FlightTrafficLight {
 }
 
 /** Map a traffic-light value to the Tailwind background class.
- *  Hollow = empty ring (透明填充); black = 閃爍（animate-pulse）。
+ *  Hollow = empty ring; red & black = 閃爍 (animate-pulse).
  */
 export function flightTrafficLightClass(light: FlightTrafficLight): string {
   switch (light) {
@@ -699,12 +690,10 @@ export function flightTrafficLightClass(light: FlightTrafficLight): string {
       return "border-2 border-zinc-400 bg-transparent dark:border-zinc-500";
     case "green":
       return "bg-emerald-500";
-    case "blue":
-      return "bg-sky-500";
     case "yellow":
       return "bg-amber-500";
     case "red":
-      return "bg-rose-500";
+      return "bg-rose-500 animate-pulse";
     case "black":
       return "bg-zinc-900 animate-pulse";
   }
