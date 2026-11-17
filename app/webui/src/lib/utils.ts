@@ -189,6 +189,9 @@ export function getUIStrings(lang: Language) {
         ? "Leer original"
         : "Read original",
 
+    // Overlay — original-text section header
+    originalLabel: lang === "zh" ? "原文" : "Original",
+
     // Refresh
     refreshing:
       lang === "zh" ? "重新整理中..." : lang === "es" ? "Actualizando..." : "Refreshing...",

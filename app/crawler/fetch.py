@@ -181,6 +181,86 @@ def extract_image(entry: Any) -> str | None:
     return None
 
 
+MAX_IMAGES_PER_ITEM = 6
+
+
+def extract_images(entry: Any) -> list[str]:
+    """Return up to MAX_IMAGES_PER_ITEM distinct image URLs for the entry.
+
+    Order: media:content / media:thumbnail > enclosures > every <img> in
+    content:encoded / Atom content > description. Deduped by base URL
+    (ignoring query string) and filtered to absolute http(s) URLs.
+    """
+    urls: list[str] = []
+    seen: set[str] = set()
+
+    def _add(candidate: str) -> None:
+        candidate = (candidate or "").strip()
+        if not candidate or not _is_http_url(candidate):
+            return
+        lower = candidate.lower()
+        if lower.endswith(".svg"):
+            return
+        if "pixel" in lower or "tracker" in lower or "1x1" in lower:
+            return
+        base = urlsplit(candidate)._replace(query="", fragment="").geturl()
+        if base in seen:
+            return
+        seen.add(base)
+        urls.append(candidate)
+
+    # 1) media:content and 2) media:thumbnail
+    for key in ("media_content", "media_thumbnail"):
+        for media in entry.get(key) or []:
+            mime = (media.get("type") or "").lower()
+            medium = (media.get("medium") or "").lower()
+            candidate = (media.get("url") or "").strip()
+            if not candidate:
+                continue
+            if mime.startswith("image") or medium == "image":
+                _add(candidate)
+            elif not mime and not medium and _looks_like_image(candidate):
+                _add(candidate)
+            if len(urls) >= MAX_IMAGES_PER_ITEM:
+                return urls
+
+    # 3) enclosures
+    for link in (entry.get("links") or []):
+        if (link.get("rel") or "").lower() != "enclosure":
+            continue
+        candidate = (link.get("href") or link.get("url") or "").strip()
+        mime = (link.get("type") or "").lower()
+        if mime.startswith("image") or (not mime and _looks_like_image(candidate)):
+            _add(candidate)
+        if len(urls) >= MAX_IMAGES_PER_ITEM:
+            return urls
+    for enclosure in entry.get("enclosures") or []:
+        candidate = (enclosure.get("href") or enclosure.get("url") or "").strip()
+        mime = (enclosure.get("type") or "").lower()
+        if mime.startswith("image") or (not mime and _looks_like_image(candidate)):
+            _add(candidate)
+        if len(urls) >= MAX_IMAGES_PER_ITEM:
+            return urls
+
+    # 4) every <img> in content:encoded / Atom content
+    for block in entry.get("content") or []:
+        for match in _IMG_TAG_RE.finditer(block.get("value") or ""):
+            _add(match.group(1))
+            if len(urls) >= MAX_IMAGES_PER_ITEM:
+                return urls
+
+    # 5) description / summary as last resort
+    for raw in (entry.get("summary"), entry.get("description")):
+        if not raw:
+            continue
+        for match in _IMG_TAG_RE.finditer(raw):
+            _add(match.group(1))
+            if len(urls) >= MAX_IMAGES_PER_ITEM:
+                return urls
+
+    return urls
+
+
 # --------------------------------------------------------------------------- #
 # Parsing
 # --------------------------------------------------------------------------- #
@@ -234,6 +314,7 @@ def parse_entries(feed: dict, parsed: Any) -> list[dict]:
                 "summary": truncate(summary),
                 "content": content_full[:CONTENT_MAX_CHARS],
                 "image_url": extract_image(entry),
+                "image_urls": extract_images(entry),
                 "published_at": _entry_published(entry),
                 "topic": feed["topic"],
                 "source": feed["name"],

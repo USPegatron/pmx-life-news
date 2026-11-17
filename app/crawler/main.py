@@ -128,6 +128,7 @@ def build_row(entry: dict) -> dict:
         "summary_zh": None,
         "summary_es": None,
         "image_url": entry.get("image_url"),
+        "image_urls": entry.get("image_urls") or [],
         "content_original": (entry.get("content") or summary or None),
         "published_at": published.isoformat() if published else None,
     }

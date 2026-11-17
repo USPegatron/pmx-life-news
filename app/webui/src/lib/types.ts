@@ -15,6 +15,7 @@ export interface NewsItem {
   content_zh: string | null;
   content_es: string | null;
   image_url: string | null;
+  image_urls: string[] | null;
   published_at: string | null;
   fetched_at: string;
   created_at: string;

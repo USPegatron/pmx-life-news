@@ -19,6 +19,7 @@ create table if not exists public.news_items (
   summary_zh        text,
   summary_es        text,
   image_url         text,
+  image_urls        text[] not null default '{}',
   content_original  text,
   content_zh        text,
   content_es        text,
