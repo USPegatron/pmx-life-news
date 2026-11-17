@@ -298,6 +298,19 @@ export function getUIStrings(lang: Language) {
         : lang === "es"
         ? "Error al importar"
         : "Import failed",
+    flightTemplateButton:
+      lang === "zh"
+        ? "下載 Excel 範本"
+        : lang === "es"
+        ? "Descargar plantilla Excel"
+        : "Download Excel template",
+    flightTemplateFilename: "flights_template.csv",
+    flightUploadButton:
+      lang === "zh"
+        ? "上傳檔案"
+        : lang === "es"
+        ? "Subir archivo"
+        : "Upload file",
 
     flightUpdateButton:
       lang === "zh" ? "更新" : lang === "es" ? "Actualizar" : "Update",

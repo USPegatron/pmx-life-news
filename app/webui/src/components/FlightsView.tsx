@@ -127,6 +127,7 @@ export function FlightsView({ language }: { language: Language }) {
   const [importText, setImportText] = useState("");
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [importFileName, setImportFileName] = useState<string | null>(null);
 
   // Toast / banner
   const [toast, setToast] = useState<{ kind: "success" | "error"; text: string } | null>(null);
@@ -238,6 +239,7 @@ export function FlightsView({ language }: { language: Language }) {
       const n = Number(json?.upserted) || 0;
       showToast("success", ui.flightImportSuccess(n));
       setImportText("");
+      setImportFileName(null);
       setImportOpen(false);
       await fetchFlights(true);
     } catch (err) {
@@ -247,6 +249,49 @@ export function FlightsView({ language }: { language: Language }) {
     } finally {
       setIsImporting(false);
     }
+  };
+
+  // ----- Import: template download + file upload -----
+
+  const handleDownloadTemplate = () => {
+    // Header + 3 example rows. Kept clean (no comment lines) so the server
+    // parser can ingest it as-is — the parser drops the header because
+    // `flight_date` fails the YYYY-MM-DD regex.
+    const csv =
+      "flight_date,dep_airport,arr_airport,airline_code,flight_number,scheduled_dep,scheduled_arr\n" +
+      "2026-11-20,TPE,LAX,AA,1234,2026-11-20T08:30:00Z,2026-11-20T15:00:00Z\n" +
+      "2026-11-21,ELP,IAH,UA,4521,2026-11-21T06:15:00,2026-11-21T09:30:00\n" +
+      "2026-11-22,LAX,TPE,AA,1235,2026-11-22T11:00:00,2026-11-22T17:30:00\n";
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = ui.flightTemplateFilename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Reset so re-selecting the same file still triggers onChange.
+    e.target.value = "";
+    if (!file) {
+      setImportFileName(null);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = typeof reader.result === "string" ? reader.result : "";
+      setImportText(text);
+      setImportFileName(file.name);
+      setImportError(null);
+    };
+    reader.onerror = () => {
+      setImportError(ui.flightImportFailed);
+    };
+    reader.readAsText(file);
   };
 
   // ----- Modal: pre-fill on open -----
@@ -476,6 +521,73 @@ export function FlightsView({ language }: { language: Language }) {
               </svg>
             </button>
           </div>
+          {/* Template download + file upload row */}
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <button
+              type="button"
+              onClick={handleDownloadTemplate}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium
+                bg-white border border-border rounded-lg
+                text-ink-light hover:text-accent hover:border-accent/50
+                transition-all duration-200"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 14l5 5m0 0l5-5m-5 5V4"
+                />
+              </svg>
+              <span>{ui.flightTemplateButton}</span>
+            </button>
+
+            <label
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium
+                bg-white border border-border rounded-lg cursor-pointer
+                text-ink-light hover:text-accent hover:border-accent/50
+                transition-all duration-200"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5m0 0l5 5m-5-5v12"
+                />
+              </svg>
+              <span>{ui.flightUploadButton}</span>
+              <input
+                type="file"
+                accept=".csv,text/csv,text/plain"
+                onChange={handleFileChange}
+                aria-label={ui.flightUploadButton}
+                className="hidden"
+              />
+            </label>
+
+            {importFileName && (
+              <span
+                className="text-xs text-ink-light truncate max-w-[60%]"
+                title={importFileName}
+              >
+                {importFileName}
+              </span>
+            )}
+          </div>
+
           <textarea
             value={importText}
             onChange={(e) => setImportText(e.target.value)}
