@@ -569,7 +569,7 @@ export default function Home() {
       </header>
 
       {/* Content */}
-      <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 ${view === "flights" ? "pt-0" : "pt-8"}`}>
+      <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${view === "flights" ? "pt-0 pb-0" : "pt-8 pb-8"}`}>
         {view === "flights" ? (
           <FlightsView ref={flightsRef} language={language} range={flightRange} onRangeChange={setFlightRange} />
         ) : (

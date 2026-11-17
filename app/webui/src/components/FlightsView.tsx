@@ -877,9 +877,9 @@ export const FlightsView = forwardRef(function FlightsView(
         </div>
       )}
 
-      {/* Two-column layout: 待出發 (left) + 已出發 (right). */}
+      {/* Two-column layout: 待出發 (left) + 已出發 (right). Independent scroll on desktop. */}
       {!isLoading && !error && flights.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:h-[calc(100vh-150px)]">
           <FlightColumn
             title={ui.flightPendingDeparture}
             count={leftFlights.length}
@@ -940,7 +940,7 @@ function FlightColumn({
   showHeader?: boolean;
 }) {
   return (
-    <section>
+    <section className="lg:overflow-y-auto lg:h-full">
       {showHeader && (
       <header className="lg:hidden flex items-center gap-2 mb-1.5">
         <h2 className="text-sm font-display font-semibold text-ink tracking-tight">
