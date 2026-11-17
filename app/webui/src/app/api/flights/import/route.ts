@@ -6,23 +6,27 @@ export const runtime = "nodejs";
 /**
  * POST /api/flights/import
  *   body { text: "..." }   -- one flight per line, CSV columns:
- *     flight_date,dep_airport,arr_airport,airline_code,flight_number
- *       [,airline_name][,aircraft_type][,scheduled_dep][,scheduled_arr]
- *   - airline_name / aircraft_type are optional display fields.
- *   - scheduled_dep / scheduled_arr are optional ISO strings.
+ *     flight_date,dep_airport,arr_airport,airline_code,flight_number[,scheduled_dep][,scheduled_arr]
+ *   - Exactly 5 (required only) or 7 (with optional scheduled times) columns per line.
+ *   - scheduled_dep / scheduled_arr are optional ISO 8601 strings (e.g.
+ *     2026-11-17T08:30:00Z or 2026-11-17 08:30). Invalid dates are coerced to null.
+ *   - airline_name / aircraft_type are NOT settable via CSV — use the in-app
+ *     "Update" modal after import to fill those display fields.
  *   - duplicates upsert on (flight_date, dep, arr, airline, flight#)
  */
 function parseLine(line: string) {
-  const parts = line.split(",").map((s) => s.trim()).filter(Boolean);
-  if (parts.length < 5) return null;
+  // No `.filter(Boolean)` here — empty trailing fields (e.g. the `,,` at the
+  // end of a 7-col row with both optional times left blank) must still count
+  // toward the column count, otherwise a row with one blank optional would
+  // collapse to 6 parts and be wrongly rejected.
+  const parts = line.split(",").map((s) => s.trim());
+  if (parts.length !== 5 && parts.length !== 7) return null;
   const [
     flight_date,
     dep_airport,
     arr_airport,
     airline_code,
     flight_number,
-    airline_name,
-    aircraft_type,
     scheduled_dep,
     scheduled_arr,
   ] = parts;
@@ -52,16 +56,25 @@ function parseLine(line: string) {
   })();
   if (!isoDate) return null;
 
+  // Parse optional ISO 8601 datetime. Invalid input → null (never throw —
+  // `new Date("garbage").toISOString()` raises RangeError otherwise).
+  const parseOptionalIso = (raw: string | undefined): string | null => {
+    if (!raw) return null;
+    try {
+      return new Date(raw).toISOString();
+    } catch {
+      return null;
+    }
+  };
+
   return {
     flight_date: isoDate,
     dep_airport: dep_airport.toUpperCase(),
     arr_airport: arr_airport.toUpperCase(),
     airline_code: airline_code.toUpperCase(),
     flight_number: flight_number.toUpperCase(),
-    airline_name: airline_name || null,
-    aircraft_type: aircraft_type || null,
-    scheduled_dep: scheduled_dep ? new Date(scheduled_dep).toISOString() : null,
-    scheduled_arr: scheduled_arr ? new Date(scheduled_arr).toISOString() : null,
+    scheduled_dep: parseOptionalIso(scheduled_dep),
+    scheduled_arr: parseOptionalIso(scheduled_arr),
     status: "scheduled" as const,
     updated_by: "import",
   };
@@ -86,7 +99,7 @@ export async function POST(req: Request) {
   const skipped = lines.length - flights.length;
   if (!flights.length) {
     return NextResponse.json(
-      { error: "no valid rows", skipped, hint: "每行格式: flight_date(YYYY-MM-DD),dep_airport,arr_airport,airline_code,flight_number" },
+      { error: "no valid rows", skipped, hint: "每行格式: flight_date(YYYY-MM-DD),dep_airport,arr_airport,airline_code,flight_number[,scheduled_dep][,scheduled_arr]" },
       { status: 400 }
     );
   }

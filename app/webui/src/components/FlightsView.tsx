@@ -291,11 +291,14 @@ export function FlightsView({ language }: { language: Language }) {
     // Header + 3 example rows. Kept clean (no comment lines) so the server
     // parser can ingest it as-is — the parser drops the header because
     // `flight_date` fails the YYYY-MM-DD regex.
+    //   Row 1: full 7-col example with ISO 8601 scheduled times (UTC, with `Z`).
+    //   Row 2: 7-col example with BOTH scheduled times left blank (trailing `,,`).
+    //   Row 3: full 7-col example with both times filled.
     const csv =
-      "flight_date,dep_airport,arr_airport,airline_code,flight_number,airline_name,aircraft_type,scheduled_dep,scheduled_arr\n" +
-      "2026-11-20,TPE,LAX,AA,1234,American Airlines,B738,2026-11-20T09:10,2026-11-20T10:20\n" +
-      "2026-11-21,ELP,IAH,UA,4521,United Airlines,A320,2026-11-21T07:00,2026-11-21T09:30\n" +
-      "2026-11-22,LAX,TPE,AA,1235,American Airlines,B77W,2026-11-22T13:00,2026-11-22T18:30\n";
+      "flight_date,dep_airport,arr_airport,airline_code,flight_number,scheduled_dep,scheduled_arr\n" +
+      "2026-11-17,TPE,LAX,BR,16,2026-11-17T08:30:00Z,2026-11-17T17:45:00Z\n" +
+      "2026-11-18,ELP,IAH,UA,4521,,\n" +
+      "2026-11-19,LAX,TPE,AA,1235,2026-11-19T13:00:00Z,2026-11-19T18:30:00Z\n";
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -695,9 +698,10 @@ export function FlightsView({ language }: { language: Language }) {
           <textarea
             value={importText}
             onChange={(e) => setImportText(e.target.value)}
-            placeholder={`flight_date,dep_airport,arr_airport,airline_code,flight_number[,airline_name][,aircraft_type][,scheduled_dep][,scheduled_arr]
-2026-11-18,TPE,LAX,BR,16,Eva Air,B77W,2026-11-18T09:10,2026-11-18T10:20
-2026-11-19,LAX,TPE,BR,17,Eva Air,B77W,2026-11-19T13:00,2026-11-19T18:30`}
+            placeholder={`flight_date,dep_airport,arr_airport,airline_code,flight_number,scheduled_dep,scheduled_arr
+(last 2 are optional — leave blank if not known)
+2026-11-17,TPE,LAX,BR,16,2026-11-17T08:30:00Z,2026-11-17T17:45:00Z
+2026-11-18,ELP,IAH,UA,4521  ← no scheduled times yet`}
             rows={6}
             className="w-full text-xs font-mono p-3 bg-paper border border-border rounded-lg
               text-ink placeholder-ink-light/70
@@ -754,7 +758,7 @@ export function FlightsView({ language }: { language: Language }) {
               {[...Array(3)].map((_, i) => (
                 <div
                   key={i}
-                  className="bg-white border border-border rounded-md px-3 py-1.5 space-y-1.5"
+                  className="bg-white border border-border rounded-md px-3 py-2 space-y-1.5"
                 >
                   {/* Row 1 (skeleton): one light + 4 segments separated by `/` + update button.
                       Mirrors the real row 1 layout (single light, single-line meta). */}
@@ -771,9 +775,17 @@ export function FlightsView({ language }: { language: Language }) {
                     </div>
                     <div className="h-3 w-8 skeleton rounded shrink-0" />
                   </div>
+                  {/* Row 2 (skeleton): two side-by-side, each with a scheduled-time bar
+                      (big) + an actual-time bar (smaller) + an IATA bar (smallest).
+                      Mirrors the redesigned CompactFlightCard row 2 layout. */}
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="h-3 w-24 skeleton rounded" />
-                    <div className="h-3 w-24 skeleton rounded" />
+                    {[0, 1].map((col) => (
+                      <div key={col} className="flex flex-col gap-1 min-w-0">
+                        <div className="h-4 w-14 skeleton rounded" />
+                        <div className="h-3 w-20 skeleton rounded opacity-70" />
+                        <div className="h-2.5 w-10 skeleton rounded opacity-50" />
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
@@ -930,8 +942,24 @@ function CompactFlightCard({
   const airlineDisplayName =
     flight.airline_name?.trim() || getAirlineName(flight.airline_code) || "";
 
+  // Localised "not yet" labels — inlined here because utils.ts is shared with
+  // the rest of the app and we want these strings to ship alongside the card
+  // redesign. Trilingual to match the rest of the UI.
+  const notYetDepLabel =
+    language === "zh"
+      ? "未出發"
+      : language === "es"
+      ? "sin salida"
+      : "not departed";
+  const notYetArrLabel =
+    language === "zh"
+      ? "未抵達"
+      : language === "es"
+      ? "sin llegada"
+      : "not arrived";
+
   return (
-    <div className="group bg-white border border-border rounded-md px-3 py-1.5 transition-colors duration-200 hover:border-accent/40">
+    <div className="group bg-white border border-border rounded-md px-3 py-2 transition-colors duration-200 hover:border-accent/40">
       {/* Row 1: single dep traffic-light dot + meta line (date / flight# / airline [/ aircraft])
           + update button. ONE light per card. The meta line is wrapped in `truncate`
           so the entire `date / ref / airline / aircraft` ellipsizes from the right
@@ -969,7 +997,8 @@ function CompactFlightCard({
             </>
           )}
         </div>
-        {/* Update button — small, opens the existing modal. */}
+        {/* Update button — small, opens the existing modal that lets the user
+            edit scheduled_dep/arr and actual_dep/arr side-by-side. */}
         <button
           onClick={onUpdate}
           className="shrink-0 inline-flex items-center px-2 py-0.5 text-[10px] font-medium
@@ -981,17 +1010,25 @@ function CompactFlightCard({
           {ui.flightUpdateButton}
         </button>
       </div>
-      {/* Row 2: dep (left) + arr (right) airport/time. Unchanged from before. */}
-      <div className="grid grid-cols-2 gap-3 mt-1">
+      {/* Row 2: dep (left) + arr (right). Each side shows the SCHEDULED time
+          first (big, primary visual weight) and the ACTUAL time beside it
+          (small, muted), with the airport IATA below. Per user request
+          "表定的時間, 你應該要先顯示阿". The existing 更新 button above is
+          the single entry point for editing both times. */}
+      <div className="grid grid-cols-2 gap-3 mt-1.5">
         <Stop
           iata={flight.dep_airport}
           scheduled={fmtClock(flight.scheduled_dep)}
           actual={flight.actual_dep ? fmtClock(flight.actual_dep) : null}
+          notYetLabel={notYetDepLabel}
+          onTimeLabel={ui.flightDelayOnTime}
         />
         <Stop
           iata={flight.arr_airport}
           scheduled={fmtClock(flight.scheduled_arr)}
           actual={flight.actual_arr ? fmtClock(flight.actual_arr) : null}
+          notYetLabel={notYetArrLabel}
+          onTimeLabel={ui.flightDelayOnTime}
         />
       </div>
     </div>
@@ -999,40 +1036,62 @@ function CompactFlightCard({
 }
 
 // ---------- Stop (one side of a flight card) ----------
+//
+// Layout (scheduled-first, per user request "表定的時間, 你應該要先顯示阿"):
+//   Line 1: scheduled time (BIG, primary visual weight) → actual (small, muted)
+//   Line 2: airport IATA (small, muted)
+// Scheduled dominates by font-size + weight + colour; actual is a secondary
+// annotation on the same line. When actual === scheduled we collapse to the
+// localised "on time" string (italic, muted). When actual is missing entirely
+// we show the localised `notYetLabel` (italic, very muted) instead of the time.
 
 function Stop({
   iata,
   scheduled,
   actual,
+  notYetLabel,
+  onTimeLabel,
 }: {
   iata: string;
   scheduled: string;
   actual: string | null;
+  notYetLabel: string;
+  onTimeLabel: string;
 }) {
+  const sameAsScheduled = !!scheduled && !!actual && scheduled === actual;
+  const actualText = !actual
+    ? notYetLabel
+    : sameAsScheduled
+    ? onTimeLabel
+    : actual;
+  const actualClass = !actual
+    ? "text-ink-light/60 italic"
+    : sameAsScheduled
+    ? "text-ink-light/80 italic"
+    : "text-ink-light";
   return (
-    <div className="flex items-baseline gap-1.5 min-w-0 truncate">
-      <span className="font-display font-semibold text-sm text-ink shrink-0 leading-none">
-        {iata}
-      </span>
-      {actual && scheduled ? (
-        <>
-          <span className="text-[11px] font-mono text-ink-light leading-none">
-            {scheduled}
-          </span>
-          <span className="text-[10px] text-ink-light/60 leading-none">→</span>
-          <span className="text-xs font-mono font-semibold text-ink leading-none">
-            {actual}
-          </span>
-        </>
-      ) : actual ? (
-        <span className="text-xs font-mono font-semibold text-ink leading-none">
-          {actual}
-        </span>
-      ) : (
-        <span className="text-xs font-mono text-ink-light leading-none">
+    <div className="min-w-0">
+      {/* Time row: scheduled (big) → actual (small, muted). */}
+      <div className="flex items-baseline gap-1 leading-none min-w-0">
+        <span className="font-display font-semibold text-base text-ink tabular-nums leading-none shrink-0">
           {scheduled || "—"}
         </span>
-      )}
+        <span
+          className="text-[10px] text-ink-light/50 leading-none shrink-0"
+          aria-hidden="true"
+        >
+          →
+        </span>
+        <span
+          className={`text-xs font-mono leading-none truncate ${actualClass}`}
+        >
+          {actualText}
+        </span>
+      </div>
+      {/* Airport IATA — under the times so scheduled stays the primary visual element. */}
+      <div className="text-[10px] text-ink-light mt-0.5 truncate leading-none font-body tracking-wide uppercase">
+        {iata}
+      </div>
     </div>
   );
 }
