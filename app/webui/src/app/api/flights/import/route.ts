@@ -6,6 +6,46 @@ export const maxDuration = 60;
 
 const AVIATIONSTACK_KEY = process.env.AVIATIONSTACK_API_KEY || "";
 
+// ---------- Timezone helpers for AviationStack local→UTC conversion ----------
+
+const AIRPORT_TZ: Record<string, string> = {
+  ELP: "America/Denver", LAX: "America/Los_Angeles", TPE: "Asia/Taipei",
+  PHX: "America/Phoenix", DAL: "America/Chicago", SFO: "America/Los_Angeles",
+  SEA: "America/Los_Angeles", LAS: "America/Los_Angeles", DEN: "America/Denver",
+  ORD: "America/Chicago", ATL: "America/New_York", DFW: "America/Chicago",
+  JFK: "America/New_York", EWR: "America/New_York", IAH: "America/Chicago",
+  MIA: "America/New_York", MEX: "America/Mexico_City", TIJ: "America/Tijuana",
+  GDL: "America/Mexico_City", NRT: "Asia/Tokyo", ICN: "Asia/Seoul",
+  SIN: "Asia/Singapore", HKG: "Asia/Hong_Kong", PVG: "Asia/Shanghai",
+  BKK: "Asia/Bangkok", KUL: "Asia/Kuala_Lumpur", DEL: "Asia/Kolkata",
+};
+
+/** Compute UTC offset (minutes) for an IANA timezone on a given date. */
+function getUtcOffsetMinutes(tz: string, dateStr: string): number {
+  try {
+    const d = new Date(dateStr + "T12:00:00Z");
+    const utcStr = d.toLocaleString("en-US", { timeZone: "UTC" });
+    const tzStr = d.toLocaleString("en-US", { timeZone: tz });
+    return (new Date(tzStr).getTime() - new Date(utcStr).getTime()) / 60000;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Convert a local airport time (e.g. "2026-11-17T16:20:00" at ELP) to UTC ISO.
+ * AviationStack returns LOCAL time without offset; we must attach the airport's
+ * UTC offset so Supabase stores the correct UTC instant.
+ */
+function localToUtcIso(localTime: string, airportCode: string): string {
+  const tz = AIRPORT_TZ[(airportCode || "").toUpperCase()] || "UTC";
+  const offsetMin = getUtcOffsetMinutes(tz, localTime.slice(0, 10));
+  // localTime has no offset — treat as "the wall clock at the airport"
+  // UTC = local - offset (offset is negative for west of UTC, e.g. -420 for MST)
+  const d = new Date(localTime + "Z"); // parse as if UTC
+  return new Date(d.getTime() - offsetMin * 60000).toISOString();
+}
+
 /**
  * POST /api/flights/import
  *   body { text: "..." }   -- one flight per line, CSV columns:
@@ -157,11 +197,15 @@ export async function POST(req: Request) {
         );
         if (!match) continue;
 
+        // Determine airports (prefer API result, fall back to existing)
+        const depApt = (match.departure?.iata || fl.dep_airport || "").toUpperCase();
+        const arrApt = (match.arrival?.iata || fl.arr_airport || "").toUpperCase();
+
         const update: Record<string, unknown> = {};
-        if (match.departure?.scheduled) update.scheduled_dep = match.departure.scheduled;
-        if (match.arrival?.scheduled) update.scheduled_arr = match.arrival.scheduled;
-        if (match.departure?.iata && !fl.dep_airport) update.dep_airport = match.departure.iata;
-        if (match.arrival?.iata && !fl.arr_airport) update.arr_airport = match.arrival.iata;
+        if (match.departure?.scheduled) update.scheduled_dep = localToUtcIso(match.departure.scheduled, depApt);
+        if (match.arrival?.scheduled) update.scheduled_arr = localToUtcIso(match.arrival.scheduled, arrApt);
+        if (depApt && !fl.dep_airport) update.dep_airport = depApt;
+        if (arrApt && !fl.arr_airport) update.arr_airport = arrApt;
         if (match.aircraft?.iata) update.aircraft_type = match.aircraft.iata;
         if (match.airline?.name && !fl.airline_name) update.airline_name = match.airline.name;
 
