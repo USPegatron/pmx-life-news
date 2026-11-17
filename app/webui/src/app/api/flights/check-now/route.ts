@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
-export const maxDuration = 10; // Vercel Hobby ceiling
+export const maxDuration = 60; // Vercel Hobby ceiling
 
 // Common PMX-relevant airports (lat, lon). Mirrors app/flight_tracker/opensky_provider.py
 const AIRPORT_COORDS: Record<string, [number, number]> = {
@@ -62,7 +62,7 @@ async function fetchStatesBbox(
   lomax: number,
 ): Promise<StateVector[]> {
   const url = `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`;
-  const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
+  const r = await fetch(url, { signal: AbortSignal.timeout(5000) });
   if (!r.ok) throw new Error(`OpenSky HTTP ${r.status}`);
   const data = await r.json();
   return (data?.states || []).map((s: unknown[]) => ({
