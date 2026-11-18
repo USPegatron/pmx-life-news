@@ -103,7 +103,7 @@ type Flight = {
   last_checked_at: string | null;
 };
 
-async function runCheck(maxFlights: number, useAviationStack: boolean) {
+async function runCheck(maxFlights: number, useAviationStack: boolean, bypassRateLimit = false) {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey) {
     return NextResponse.json({ ok: false, error: "server not configured" }, { status: 500 });
@@ -144,8 +144,8 @@ async function runCheck(maxFlights: number, useAviationStack: boolean) {
     stats.checked++;
     if (flight.actual_dep && flight.actual_arr) continue;
 
-    // Rate limit: 15 min
-    if (flight.last_checked_at) {
+    // Rate limit: 15 min (bypassed for manual "更新全部")
+    if (!bypassRateLimit && flight.last_checked_at) {
       const lastMs = new Date(flight.last_checked_at).getTime();
       if (!Number.isNaN(lastMs) && nowMs - lastMs < 15 * 60_000) continue;
     }
@@ -248,5 +248,5 @@ export async function POST(req: Request) {
       maxFlights = Math.floor(requested);
     }
   } catch { /* ignore */ }
-  return runCheck(maxFlights, false);
+  return runCheck(maxFlights, false, true); // bypassRateLimit=true for manual
 }
