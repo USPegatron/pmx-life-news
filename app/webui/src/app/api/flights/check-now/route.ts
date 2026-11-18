@@ -174,43 +174,54 @@ async function runCheck(maxFlights: number, useAviationStack: boolean) {
         stats.errors++;
       }
     } else {
-      // ---- OpenSky path (free, cron) ----
+      // ---- OpenSky path (free, unlimited) ----
       const dep = flight.dep_airport?.toUpperCase();
       const arr = flight.arr_airport?.toUpperCase();
-      if (!dep || !arr || !AIRPORT_COORDS[dep] || !AIRPORT_COORDS[arr]) {
-        // Can't check via OpenSky; just mark last_checked_at
-        await supabase.from("flights_to_track").update(update).eq("id", flight.id);
-        continue;
+
+      if (dep && arr && AIRPORT_COORDS[dep] && AIRPORT_COORDS[arr]) {
+        const deg = 0.4;
+        const [depLat, depLon] = AIRPORT_COORDS[dep];
+        const [arrLat, arrLon] = AIRPORT_COORDS[arr];
+        let depStates: StateVector[] = [];
+        let arrStates: StateVector[] = [];
+        try {
+          [depStates, arrStates] = await Promise.all([
+            fetchStatesBbox(depLat - deg, depLon - deg, depLat + deg, depLon + deg),
+            fetchStatesBbox(arrLat - deg, arrLon - deg, arrLat + deg, arrLon + deg),
+          ]);
+        } catch {
+          stats.errors++;
+        }
+
+        const ident = `${flight.airline_code}${flight.flight_number}`;
+        const csRe = new RegExp(`\\b${ident}\\b`, "i");
+        const matched = [...depStates, ...arrStates].filter((a) => a.callsign && csRe.test(a.callsign));
+        const depAirborne = matched.filter((a) => depStates.includes(a) && !a.onGround);
+        const arrGround = matched.filter((a) => arrStates.includes(a) && a.onGround);
+
+        if (arrGround.length > 0 && !flight.actual_arr) {
+          update.actual_arr = nowIso;
+          update.status = "arrived";
+        } else if (depAirborne.length > 0 && !flight.actual_dep) {
+          update.actual_dep = nowIso;
+          update.status = "departed";
+        }
       }
 
-      const deg = 0.4;
-      const [depLat, depLon] = AIRPORT_COORDS[dep];
-      const [arrLat, arrLon] = AIRPORT_COORDS[arr];
-      let depStates: StateVector[] = [];
-      let arrStates: StateVector[] = [];
-      try {
-        [depStates, arrStates] = await Promise.all([
-          fetchStatesBbox(depLat - deg, depLon - deg, depLat + deg, depLon + deg),
-          fetchStatesBbox(arrLat - deg, arrLon - deg, arrLat + deg, arrLon + deg),
-        ]);
-      } catch {
-        stats.errors++;
-        await supabase.from("flights_to_track").update(update).eq("id", flight.id);
-        continue;
+      // Time-based fallback: if 15+ min past scheduled time with no actual, infer
+      if (!update.actual_dep && !flight.actual_dep && flight.scheduled_dep) {
+        const depMs = new Date(flight.scheduled_dep).getTime();
+        if (!Number.isNaN(depMs) && nowMs > depMs + 15 * 60_000) {
+          update.actual_dep = flight.scheduled_dep;
+          update.status = "departed";
+        }
       }
-
-      const ident = `${flight.airline_code}${flight.flight_number}`;
-      const csRe = new RegExp(`\\b${ident}\\b`, "i");
-      const matched = [...depStates, ...arrStates].filter((a) => a.callsign && csRe.test(a.callsign));
-      const depAirborne = matched.filter((a) => depStates.includes(a) && !a.onGround);
-      const arrGround = matched.filter((a) => arrStates.includes(a) && a.onGround);
-
-      if (arrGround.length > 0 && !flight.actual_arr) {
-        update.actual_arr = nowIso;
-        update.status = "arrived";
-      } else if (depAirborne.length > 0 && !flight.actual_dep) {
-        update.actual_dep = nowIso;
-        update.status = "departed";
+      if (!update.actual_arr && !flight.actual_arr && flight.actual_dep && flight.scheduled_arr) {
+        const arrMs = new Date(flight.scheduled_arr).getTime();
+        if (!Number.isNaN(arrMs) && nowMs > arrMs + 15 * 60_000) {
+          update.actual_arr = flight.scheduled_arr;
+          update.status = "arrived";
+        }
       }
     }
 
@@ -222,12 +233,12 @@ async function runCheck(maxFlights: number, useAviationStack: boolean) {
   return NextResponse.json({ ok: true, ...stats });
 }
 
-// GET = cron (OpenSky only, free)
+// GET = cron (every 15 min, free)
 export async function GET() {
   return runCheck(10, false);
 }
 
-// POST = manual "更新全部" button (AviationStack, uses API quota)
+// POST = manual "更新全部" button (same logic: OpenSky + time fallback)
 export async function POST(req: Request) {
   let maxFlights = 10;
   try {
@@ -237,5 +248,5 @@ export async function POST(req: Request) {
       maxFlights = Math.floor(requested);
     }
   } catch { /* ignore */ }
-  return runCheck(maxFlights, true);
+  return runCheck(maxFlights, false);
 }
