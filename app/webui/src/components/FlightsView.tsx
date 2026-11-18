@@ -92,12 +92,23 @@ function fmtClock(iso: string | null, airportCode: string | null | undefined): s
   }
 }
 
-/** "M/D" extracted from the date portion of an ISO literal (no TZ conversion). */
-function fmtDate(iso: string | null): string {
+/** "M/D" in the airport's local timezone (renders the UTC instant in the airport's date). */
+function fmtDate(iso: string | null, airportCode?: string | null): string {
   if (!iso) return "";
-  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return "";
-  return `${parseInt(m[2], 10)}/${parseInt(m[3], 10)}`;
+  const tz = (airportCode && AIRPORT_TZ[airportCode.toUpperCase()]) || "UTC";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      month: "2-digit", day: "2-digit",
+      timeZone: tz,
+    }).formatToParts(d);
+    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "01";
+    return `${parseInt(get("month"), 10)}/${parseInt(get("day"), 10)}`;
+  } catch {
+    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${parseInt(m[2], 10)}/${parseInt(m[3], 10)}` : "";
+  }
 }
 
 function pad2(n: number): string {
@@ -1106,7 +1117,7 @@ function CompactFlightCard({
               {flight.dep_airport}
             </span>
             <span className="text-[10px] text-ink-light tabular-nums leading-none" title="Departure date">
-              {fmtDate(flight.scheduled_dep) || "—"}
+              {fmtDate(flight.scheduled_dep, flight.dep_airport) || "—"}
             </span>
             <span className="text-base font-display font-semibold text-ink tabular-nums leading-none">
               {fmtClock(flight.scheduled_dep, flight.dep_airport) || "—"}
@@ -1130,7 +1141,7 @@ function CompactFlightCard({
               {flight.arr_airport}
             </span>
             <span className="text-[10px] text-ink-light tabular-nums leading-none" title="Arrival date">
-              {fmtDate(flight.scheduled_arr) || "—"}
+              {fmtDate(flight.scheduled_arr, flight.arr_airport) || "—"}
             </span>
             <span className="text-base font-display font-semibold text-ink tabular-nums leading-none">
               {fmtClock(flight.scheduled_arr, flight.arr_airport) || "—"}

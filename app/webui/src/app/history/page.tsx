@@ -34,11 +34,22 @@ function fmtClock(iso: string | null, airportCode?: string | null): string {
   }
 }
 
-function fmtDate(iso: string | null): string {
+function fmtDate(iso: string | null, airportCode?: string | null): string {
   if (!iso) return "";
-  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return "";
-  return `${parseInt(m[2], 10)}/${parseInt(m[3], 10)}`;
+  const tz = (airportCode && AIRPORT_TZ[airportCode.toUpperCase()]) || "UTC";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      month: "2-digit", day: "2-digit",
+      timeZone: tz,
+    }).formatToParts(d);
+    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "01";
+    return `${parseInt(get("month"), 10)}/${parseInt(get("day"), 10)}`;
+  } catch {
+    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${parseInt(m[2], 10)}/${parseInt(m[3], 10)}` : "";
+  }
 }
 
 function fmtDelay(scheduled: string | null, actual: string | null): string {
@@ -143,7 +154,7 @@ export default function HistoryPage() {
                 <div className="grid grid-cols-2 mt-2 text-sm">
                   <div className="text-left">
                     <span className="font-semibold text-ink">{f.dep_airport}</span>
-                    <span className="text-ink-light/60 ml-1.5 text-xs">{fmtDate(f.scheduled_dep)}</span>
+                    <span className="text-ink-light/60 ml-1.5 text-xs">{fmtDate(f.scheduled_dep, f.dep_airport)}</span>
                     <span className="font-semibold text-ink ml-1.5 tabular-nums">
                       {fmtClock(f.scheduled_dep, f.dep_airport)}
                     </span>
@@ -161,7 +172,7 @@ export default function HistoryPage() {
                   </div>
                   <div className="text-left">
                     <span className="font-semibold text-ink">{f.arr_airport}</span>
-                    <span className="text-ink-light/60 ml-1.5 text-xs">{fmtDate(f.scheduled_arr)}</span>
+                    <span className="text-ink-light/60 ml-1.5 text-xs">{fmtDate(f.scheduled_arr, f.arr_airport)}</span>
                     <span className="font-semibold text-ink ml-1.5 tabular-nums">
                       {fmtClock(f.scheduled_arr, f.arr_airport)}
                     </span>
